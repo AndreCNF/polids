@@ -1,8 +1,9 @@
-from typing import List, Tuple
+from typing import List
 import os
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import spacy
+from string import punctuation
 
 SPACY_NLP = spacy.load("pt_core_news_lg")
 
@@ -49,36 +50,76 @@ def get_word_cloud(words: List[str], max_words=500, image_path=None, image_name=
         plt.savefig(os.path.join(image_path, image_name), bbox_inches="tight")
 
 
-def _get_phrases(doc: spacy.tokens.doc.Doc) -> List[str]:
+def _add_sentence_to_list(sentence: str, sentences_list: List[str]):
     """
-    Get phrases from a text. Also remove new line symbols.
+    Add a sentence to the list of sentences.
 
     Args:
-        doc (spacy.tokens.doc.Doc):
-            Spacy document.
+        sentence (str):
+            Sentence to be added.
+        sentences (List[str]):
+            List of sentences.
+    """
+    while sentence.startswith(" "):
+        # remove leading space
+        sentence = sentence[1:]
+    if all(c in punctuation for c in sentence) or len(sentence) == 1:
+        # skip sentences with only punctuation
+        return
+    sentences_list.append(sentence)
+
+
+def get_sentences(text: str) -> List[str]:
+    """
+    Get sentences from a text.
+
+    Args:
+        text (str):
+            Text to be processed.
 
     Returns:
         List[str]:
-            List of phrases.
+            List of sentences.
     """
-    phrases = [sent.text.replace("\n", "") for sent in doc.sents]
-    return phrases
+    # get the paragraphs
+    paragraphs = text.split("\n")
+    paragraphs = [p for p in paragraphs if p != ""]
+    # get the sentences from the paragraphs
+    sentences = list()
+    for paragraph in paragraphs:
+        if paragraph.startswith("#"):
+            _add_sentence_to_list(paragraph, sentences)
+            continue
+        prev_sentence_idx = 0
+        for idx in range(len(paragraph)):
+            if idx + 1 < len(paragraph):
+                if (paragraph[idx] == "." and not paragraph[idx + 1].isdigit()) or (
+                    paragraph[idx] in "!?"
+                ):
+                    sentence = paragraph[prev_sentence_idx : idx + 1]
+                    _add_sentence_to_list(sentence, sentences)
+                    prev_sentence_idx = idx + 1
+            else:
+                sentence = paragraph[prev_sentence_idx:]
+                _add_sentence_to_list(sentence, sentences)
+    return sentences
 
 
-def _get_words(doc: spacy.tokens.doc.Doc) -> List[str]:
+def get_words(text: str) -> List[str]:
     """
     Get every word in the text that isn't a stopword or punctuation,
     and that is either a noun, adjective, verb or interjection
     (based on the [universal POS tags](https://universaldependencies.org/u/pos/))
 
     Args:
-        doc (spacy.tokens.doc.Doc):
-            Spacy document.
+        text (str):
+            Text to be processed.
 
     Returns:
         List[str]:
             List of words.
     """
+    doc = SPACY_NLP(text)
     words = [
         word.text.replace("\n", "")  # remove new line symbols
         for word in doc
@@ -95,23 +136,3 @@ def _get_words(doc: spacy.tokens.doc.Doc) -> List[str]:
     # remove blank words
     words = [word for word in words if word != ""]
     return words
-
-
-def get_phrases_and_words(text: str) -> Tuple[List[str], List[str]]:
-    """
-    Get phrases and words from a text.
-
-    Args:
-        text (str):
-            Text to be processed.
-
-    Returns:
-        List[str]:
-            List of phrases.
-        List[str]:
-            List of words.
-    """
-    doc = SPACY_NLP(text)
-    phrases = _get_phrases(doc)
-    words = _get_words(doc)
-    return phrases, words
