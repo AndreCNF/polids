@@ -3,7 +3,5 @@ volt:
         Volt Portugal
     initials:
         VP
-    program_path:
-        data/portugal_2022/programs/VP.md
-    logo_path:
-        data/portugal_2022/logos/volt.png
+    color:
+        "#54267B"

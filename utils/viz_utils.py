@@ -2,6 +2,7 @@ from typing import Dict, List
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import plotly.express as px
+import plotly.graph_objects as go
 from plotly.graph_objects import Figure
 import os
 import pandas as pd
@@ -69,6 +70,10 @@ def plot_topical_presence(
             Title of the plot.
         color (str):
             Color of the bars in the plot.
+
+    Returns:
+        Figure:
+            Plotly figure with the number of sentences per topic.
     """
     topical_sentences = get_topical_sentences(sentences, topics)
     topic_sentence_count = dict()
@@ -90,4 +95,63 @@ def plot_topical_presence(
         yaxis=dict(categoryorder="category descending"),
     )
     fig.update_traces(marker_color=color)
+    return fig
+
+
+def plot_approaches(sentences: List[str], approaches: Dict[str, List[str]]) -> Figure:
+    """
+    Plot the approaches taken to language and policy.
+
+    Args:
+        sentences (List[str]):
+            List of sentences to analyse.
+        approaches (Dict[str, List[str]]):
+            Dictionary of words per approach.
+
+    Returns:
+        Figure:
+            Plotly figure with the number of sentences per approach.
+    """
+    approach_sentences = get_topical_sentences(sentences, approaches)
+    approach_sentence_count = dict()
+    total_num_sentences_in_approaches = sum(
+        [len(approach_sentences[approach]) for approach in approach_sentences.keys()]
+    )
+    for approach in approaches:
+        approach_sentence_count[approach] = (
+            len(approach_sentences[approach]) / total_num_sentences_in_approaches * 100
+        )
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=[approach_sentence_count["rationality"]],
+            name="racionalidade",
+            orientation="h",
+            marker=dict(color="green"),
+            hovertemplate="racionalidade: %{x:.1f}%<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            x=[approach_sentence_count["intuition"]],
+            name="intuição",
+            orientation="h",
+            marker=dict(color="red"),
+            hovertemplate="intuição: %{x:.1f}%<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        title="Racionalidade vs Intuição",
+        barmode="stack",
+        xaxis=dict(
+            showgrid=False,  # thin lines in the background
+            zeroline=False,  # thick line at x=0
+            visible=False,  # numbers below
+        ),
+        yaxis=dict(
+            showgrid=False,  # thin lines in the background
+            zeroline=False,  # thick line at x=0
+            visible=False,  # numbers below
+        ),
+    )
     return fig
