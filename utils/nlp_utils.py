@@ -1,55 +1,8 @@
 from typing import Dict, List
-import os
-import matplotlib.pyplot as plt
-import plotly.express as px
-from wordcloud import WordCloud
 import spacy
 from string import punctuation
-import pandas as pd
 
 SPACY_NLP = spacy.load("pt_core_news_lg")
-
-
-def get_word_cloud(words: List[str], max_words=500, image_path=None, image_name=None):
-    """
-    Create a word cloud based on a set of words.
-
-    Args:
-        words (List[str]):
-            List of words to be included in the word cloud.
-        max_words (int):
-            Maximum number of words to be included in the word cloud.
-        image_path (str):
-            Path to the image file where to save the word cloud.
-        image_name (str):
-            Name of the image where to save the word cloud.
-    """
-    # change the value to black
-    def black_color_func(
-        word, font_size, position, orientation, random_state=None, **kwargs
-    ):
-        return "hsl(0,100%, 1%)"
-
-    # set the wordcloud background color to white
-    # set width and height to higher quality, 3000 x 2000
-    wordcloud = WordCloud(
-        font_path="/Library/Fonts/Arial Unicode.ttf",
-        background_color="white",
-        width=3000,
-        height=2000,
-        max_words=max_words,
-    ).generate(" ".join(words))
-    # set the word color to black
-    wordcloud.recolor(color_func=black_color_func)
-    # set the figsize
-    plt.figure(figsize=[15, 10])
-    # plot the wordcloud
-    plt.imshow(wordcloud, interpolation="bilinear")
-    # remove plot axes
-    plt.axis("off")
-    if image_path is not None and image_name is not None:
-        # save the image
-        plt.savefig(os.path.join(image_path, image_name), bbox_inches="tight")
 
 
 def _add_sentence_to_list(sentence: str, sentences_list: List[str]):
@@ -144,7 +97,8 @@ def get_topical_sentences(
     sentences: List[str], topics: Dict[str, List[str]]
 ) -> Dict[str, List[str]]:
     """
-    Get lists of sentences per topic.
+    Get lists of sentences per topic, based on the presence of
+    words that are a part of the topic.
 
     Args:
         sentences (List[str]):
@@ -161,40 +115,6 @@ def get_topical_sentences(
         topical_sentences[topic] = list()
     for sentence in sentences:
         for topic in topics:
-            if any(topical_word in sentence for topical_word in topics[topic]):
+            if any(topical_word in sentence.lower() for topical_word in topics[topic]):
                 topical_sentences[topic].append(sentence)
     return topical_sentences
-
-
-def plot_topical_presence(
-    sentences: List[str], topics: Dict[str, List[str]], title: str = None
-):
-    """
-    Plot the number of sentences per topic.
-
-    Args:
-        sentences (List[str]):
-            List of sentences to analyse.
-        topics (Dict[str, List[str]]):
-            Dictionary of words per topic.
-    """
-    topical_sentences = get_topical_sentences(sentences, topics)
-    topic_sentence_count = dict()
-    for topic in topical_sentences.keys():
-        topic_sentence_count[topic] = len(topical_sentences[topic])
-    topic_sentence_count = pd.DataFrame(
-        topic_sentence_count, index=["sentence_count"]
-    ).T
-    topic_sentence_count["sentence_percentage"] = (
-        topic_sentence_count["sentence_count"] / len(sentences) * 100
-    )
-    topic_sentence_count.index.name = "topic"
-    topic_sentence_count.sort_index(inplace=True)
-    fig = px.bar(topic_sentence_count, x="sentence_percentage", orientation="h")
-    fig.update_layout(
-        title=title,
-        xaxis_title="Percentagem de frases topicais no texto",
-        yaxis_title="Tópico",
-        yaxis=dict(categoryorder="category descending"),
-        # marker_color="rgb(0, 0, 0)",
-    )
