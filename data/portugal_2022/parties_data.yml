@@ -1,7 +1,16 @@
+alianca:
+    full_name: Aliança
+    initials: A
+    color: "#6BD1E3"
+adn:
+    full_name: Alternativa Democrática Nacional
+    initials: ADN
+    color: "#204E84"
+be:
+    full_name: Bloco de Esquerda
+    initials: BE
+    color: "#B92229"
 volt:
-    full_name:
-        Volt Portugal
-    initials:
-        VP
-    color:
-        "#54267B"
+    full_name: Volt Portugal
+    initials: VP
+    color: "#54267B"
