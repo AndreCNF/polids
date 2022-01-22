@@ -1,8 +1,20 @@
 from typing import Dict, List
 import spacy
 from string import punctuation
+import pandas as pd
+from tqdm.auto import tqdm
+from transformers import pipeline
 
+# NLP models
 SPACY_NLP = spacy.load("pt_core_news_lg")
+sentiment_model_path = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
+SENTIMENT_TASK = pipeline(
+    "sentiment-analysis", model=sentiment_model_path, tokenizer=sentiment_model_path
+)
+hate_model_path = "Hate-speech-CNERG/dehatebert-mono-portugese"
+HATE_TASK = pipeline(
+    "text-classification", model=hate_model_path, tokenizer=hate_model_path
+)
 
 
 def _add_sentence_to_list(sentence: str, sentences_list: List[str]):
@@ -118,3 +130,57 @@ def get_topical_sentences(
             if any(topical_word in sentence.lower() for topical_word in topics[topic]):
                 topical_sentences[topic].append(sentence)
     return topical_sentences
+
+
+def get_sentiment(sentences: str) -> pd.DataFrame:
+    """
+    Get the sentiment of a list of sentences.
+
+    Args:
+        sentences (str):
+            List of sentences to analyse.
+
+    Returns:
+        pd.DataFrame:
+            Sentiment of the sentences.
+    """
+    sentiment_outputs = [SENTIMENT_TASK(sentence) for sentence in tqdm(sentences)]
+    sentiments_dict = dict(label=[], score=[], sentence=[])
+    for idx, output in enumerate(sentiment_outputs):
+        sentiments_dict["label"].append(output[0]["label"])
+        sentiments_dict["score"].append(output[0]["score"])
+        sentiments_dict["sentence"].append(sentences[idx])
+    sentiments_df = pd.DataFrame(sentiments_dict)
+    sentiments_df["label"] = sentiments_df.label.map(
+        dict(Positive="positivo", Negative="negativo", Neutral="neutro")
+    )
+    return sentiments_df
+
+
+def get_hate_speech(sentences: str) -> pd.DataFrame:
+    """
+    Get the hate speech of a list of sentences.
+
+    Args:
+        sentences (str):
+            List of sentences to analyse.
+
+    Returns:
+        pd.DataFrame:
+            Hate speech of the sentences.
+    """
+    hate_outputs = [HATE_TASK(sentence) for sentence in tqdm(sentences)]
+    hate_dict = dict(label=[], score=[], sentence=[])
+    for idx, output in enumerate(hate_outputs):
+        hate_dict["label"].append(output[0]["label"])
+        hate_dict["score"].append(output[0]["score"])
+        hate_dict["sentence"].append(sentences[idx])
+    hate_df = pd.DataFrame(hate_dict)
+    hate_df["label"] = hate_df.label.map(dict(HATE="ódio", NON_HATE="neutro"))
+    hate_df["label"] = hate_df.apply(
+        lambda row: "HATE"
+        if ((row.label == "HATE") & (row.score > 0.7))
+        else "NON_HATE",
+        axis=1,
+    )
+    return hate_df

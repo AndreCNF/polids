@@ -7,6 +7,7 @@ from plotly.graph_objects import Figure
 import os
 import pandas as pd
 
+from utils.data_utils import get_counts
 from utils.nlp_utils import get_topical_sentences
 
 
@@ -154,4 +155,64 @@ def plot_approaches(sentences: List[str], approaches: Dict[str, List[str]]) -> F
             visible=False,  # numbers below
         ),
     )
+    return fig
+
+
+def plot_sentiment(df: pd.DataFrame) -> Figure:
+    """
+    Plot the predicted sentiment of the sentences.
+
+    Args:
+        df (pd.DataFrame):
+            Dataframe with the outputs of a sentiment analysis model.
+
+    Returns:
+        Figure:
+            Plotly figure with the percentage of hate speech.
+    """
+    sentiments_count = get_counts(df)
+    labels_order = ["neutro", "positivo", "negativo"]
+    fig = px.bar(
+        x=labels_order,
+        y=[
+            float(sentiments_count[sentiments_count.label == label].percent)
+            for label in labels_order
+        ],
+        title="Sentiment analysis",
+    )
+    fig.update_traces(
+        marker_color=["gray", "green", "red"],
+        hovertemplate="%{y:.1f}%<extra></extra>",
+    )
+    fig.update_layout(
+        xaxis_title="Sentimento",
+        yaxis_title="Percentagem de frases",
+    )
+    return fig
+
+
+def plot_hate_speech(df: pd.DataFrame) -> Figure:
+    """
+    Show the percentage of estimated hate speech sentences.
+
+    Args:
+        df (pd.DataFrame):
+            Dataframe with the outputs of a hate speech model.
+
+    Returns:
+        Figure:
+            Plotly figure with the percentage of hate speech.
+    """
+    hate_count = get_counts(df)
+    fig = go.Figure(
+        go.Indicator(
+            mode="number",
+            value=hate_count[hate_count.label == "ódio"].percent.values[0],
+            title="Potencial discurso de ódio",
+            number=dict(suffix="%", valueformat=".2f"),
+            delta=dict(position="top", reference=320),
+            domain=dict(x=[0, 1], y=[0, 1]),
+        )
+    )
+    fig.update_layout(paper_bgcolor="darkred", font_color="white")
     return fig
