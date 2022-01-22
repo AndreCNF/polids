@@ -10,6 +10,74 @@ be:
     full_name: Bloco de Esquerda
     initials: BE
     color: "#B92229"
+cds:
+    full_name: Partido Popular
+    initials: CDS-PP
+    color: "#0293E3"
+chega:
+    full_name: Chega
+    initials: CH
+    color: "#242257"
+ergue:
+    full_name: Ergue-te
+    initials: E
+    color: "#1E3080"
+liberal:
+    full_name: Iniciativa Liberal
+    initials: IL
+    color: "#05ACF4"
+jpp:
+    full_name: Juntos pelo Povo
+    initials: JPP
+    color: "#099480"
+livre:
+    full_name: Livre
+    initials: L
+    color: "#04CE8C"
+mas:
+    full_name: Movimento Alternativa Socialista
+    initials: MAS
+    color: "#E62629"
+mpt:
+    full_name: Partido da Terra
+    initials: MPT
+    color: "#1C4628"
+nos:
+    full_name: Nós, Cidadãos!
+    initials: NC
+    color: "#E7AE15"
+pan:
+    full_name: Pessoas - Animais - Natureza
+    initials: PAN
+    color: "#086583"
+cdu:
+    full_name: Coligação Democrática Unitária
+    initials: PCP-PEV
+    color: "#004593"
+pcpt:
+    full_name: Partido Comunista dos Trabalhadores Portugueses
+    initials: PCTP/MRPP
+    color: "#F0432B"
+psd:
+    full_name: Partido Social Democrata
+    initials: PPD/PSD
+    color: "#F08B00"
+ppm:
+    full_name: Partido Popular Monárquico
+    initials: PPM
+    color: "#005BB0"
+ps:
+    full_name: Partido Socialista
+    initials: PS
+    color: "#E31200"
+ptp:
+    full_name: Partido Trabalhista Português
+    initials: PTP
+    color: "#CB0900"
+rir:
+    full_name: Reagir Incluir Reciclar
+    initials: RIR
+    color: "#04939E"
 volt:
     full_name: Volt Portugal
     initials: VP
