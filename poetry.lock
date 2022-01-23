@@ -1293,7 +1293,7 @@ catalogue = ">=2.0.3,<2.1.0"
 
 [[package]]
 name = "streamlit"
-version = "1.3.1"
+version = "1.4.0"
 description = "The fastest way to build data apps in Python"
 category = "main"
 optional = false
@@ -1306,7 +1306,7 @@ attrs = "*"
 base58 = "*"
 blinker = "*"
 cachetools = ">=4.0"
-click = ">=7.0,<8.0"
+click = ">=7.0"
 gitpython = "!=3.1.19"
 numpy = "*"
 packaging = "*"
@@ -1689,7 +1689,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<4.0"
-content-hash = "1fb11b3e237c2701f760a4f7ca26c70cc6e0628cfb555a5c3482faa2b65a7d23"
+content-hash = "7158d9e4d550cd8a13b62e1f6519ae0283df19ce9243917116a03c4fa0b0f18d"
 
 [metadata.files]
 altair = [
@@ -2770,8 +2770,8 @@ srsly = [
     {file = "srsly-2.4.2.tar.gz", hash = "sha256:2aba252292767875086adf4e4380e27b024d73655456f796f8e07eb3a4dfacc0"},
 ]
 streamlit = [
-    {file = "streamlit-1.3.1-py2.py3-none-any.whl", hash = "sha256:6913559aeb788faa4ad24fcfb58f6ef8547dc0ecadbf1d684987fbb597b7f7e6"},
-    {file = "streamlit-1.3.1.tar.gz", hash = "sha256:adec7935c9cf774b9115b2456cf2f48c4f49b9f67159a97db0fe228357c1afdf"},
+    {file = "streamlit-1.4.0-py2.py3-none-any.whl", hash = "sha256:0f98c55194cabca3642752730a149dc07f4edf4abc56f2fffc67ed97b0d55a0c"},
+    {file = "streamlit-1.4.0.tar.gz", hash = "sha256:8cdb4c008ff63dc4522e86aed142912de53647244d97f82766a23dfee6ffe564"},
 ]
 tenacity = [
     {file = "tenacity-8.0.1-py3-none-any.whl", hash = "sha256:f78f4ea81b0fabc06728c11dc2a8c01277bfc5181b321a4770471902e3eb844a"},

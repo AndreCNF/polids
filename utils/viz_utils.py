@@ -7,8 +7,8 @@ from plotly.graph_objects import Figure
 import os
 import pandas as pd
 
-from utils.data_utils import get_counts
-from utils.nlp_utils import get_topical_sentences
+from data_utils import get_counts
+from nlp_utils import get_topical_sentences
 
 
 def get_word_cloud(words: List[str], max_words=500, image_path=None, image_name=None):

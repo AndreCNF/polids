@@ -1,7 +1,7 @@
-alianca:
-    full_name: Aliança
-    initials: A
-    color: "#6BD1E3"
+# alianca:
+#     full_name: Aliança
+#     initials: A
+#     color: "#6BD1E3"
 adn:
     full_name: Alternativa Democrática Nacional
     initials: ADN
@@ -54,26 +54,26 @@ cdu:
     full_name: Coligação Democrática Unitária
     initials: PCP-PEV
     color: "#004593"
-pcpt:
-    full_name: Partido Comunista dos Trabalhadores Portugueses
-    initials: PCTP/MRPP
-    color: "#F0432B"
+# pcpt:
+#     full_name: Partido Comunista dos Trabalhadores Portugueses
+#     initials: PCTP/MRPP
+#     color: "#F0432B"
 psd:
     full_name: Partido Social Democrata
     initials: PPD/PSD
     color: "#F08B00"
-ppm:
-    full_name: Partido Popular Monárquico
-    initials: PPM
-    color: "#005BB0"
+# ppm:
+#     full_name: Partido Popular Monárquico
+#     initials: PPM
+#     color: "#005BB0"
 ps:
     full_name: Partido Socialista
     initials: PS
     color: "#E31200"
-ptp:
-    full_name: Partido Trabalhista Português
-    initials: PTP
-    color: "#CB0900"
+# ptp:
+#     full_name: Partido Trabalhista Português
+#     initials: PTP
+#     color: "#CB0900"
 rir:
     full_name: Reagir Incluir Reciclar
     initials: RIR

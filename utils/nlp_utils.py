@@ -7,6 +7,7 @@ from transformers import pipeline
 
 # NLP models
 SPACY_NLP = spacy.load("pt_core_news_lg")
+SPACY_NLP.max_length = 8000000
 sentiment_model_path = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
 SENTIMENT_TASK = pipeline(
     "sentiment-analysis", model=sentiment_model_path, tokenizer=sentiment_model_path
@@ -100,8 +101,17 @@ def get_words(text: str) -> List[str]:
             or word.pos_ == "X"  # other
         )
     ]
-    # remove blank words
+    # remove blank words and spaces
     words = [word for word in words if word != ""]
+    words = [word.replace(" ", "") for word in words]
+    # make all words lowercase
+    words = [word.lower() for word in words]
+    # remove undesired words
+    words = [
+        word
+        for word in words
+        if word not in ["se", "há", "política", "político", "políticos", "políticas"]
+    ]
     return words
 
 
@@ -132,7 +142,7 @@ def get_topical_sentences(
     return topical_sentences
 
 
-def get_sentiment(sentences: str) -> pd.DataFrame:
+def get_sentiment(sentences: List[str]) -> pd.DataFrame:
     """
     Get the sentiment of a list of sentences.
 
@@ -157,7 +167,7 @@ def get_sentiment(sentences: str) -> pd.DataFrame:
     return sentiments_df
 
 
-def get_hate_speech(sentences: str) -> pd.DataFrame:
+def get_hate_speech(sentences: List[str]) -> pd.DataFrame:
     """
     Get the hate speech of a list of sentences.
 
