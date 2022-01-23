@@ -28,12 +28,17 @@ clima:
     - plástico
     - plásticos
     - reciclagem
+    - reciclar
+    - recicla
     - offset
     - offsetting
-    - reciclagem
     - plantar
+    - planta
+    - plantas
     - árvores
+    - floresta
     - florestas
+    - desflorestação
     - natureza
     - regenerativa
     - temperatura
@@ -60,6 +65,23 @@ clima:
     - ciclagem
     - bicicleta
     - bicicletas
+    - vegetariano
+    - vegetariana
+    - vegetarianos
+    - vegetarianas
+    - vegetarianismo
+    - vegetarianismos
+    - vegan
+    - vegana
+    - vegano
+    - veganos
+    - veganas
+    - veganismo
+    - verde
+    - verdes
+    - green
+    - greens
+    - new deal
 educação:
     - educação
     - ensino
@@ -364,6 +386,11 @@ economia:
     - desempregados
     - desempregada
     - desempregadas
+    - irs
+    - irc
+    - flat
+    - tax
+    - juros
 social:
     - social
     - sociais
