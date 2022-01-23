@@ -35,9 +35,19 @@ def geral():
     # word cloud card
     st.subheader("Palavras mais frequentes")
     st.image(os.path.join(DATA_DIR, DATA_NAME, "word_clouds", "all_parties.png"))
-
     # with st.spinner("A analisar sentimentos..."):
     # with st.spinner("A analisar discurso ódio..."):
+    left_col, right_col = st.columns(2)
+    with left_col:
+        st.subheader("Tópicos nos programas")
+        # TODO
+        st.subheader("Análise de sentimentos")
+        # TODO
+    with right_col:
+        st.subheader("Racionalidade vs Intuição")
+        # TODO
+        st.subheader("Percentagem estimada de discurso de ódio")
+        # TODO
 
 
 def individual():
@@ -49,3 +59,4 @@ def individual():
         "analisar através do menu na barra lateral (se não estiver aberta, "
         "clica no símbolo ☰ no canto superior direito)."
     )
+    # with st.expander("Possíveis frases de ódio"):
