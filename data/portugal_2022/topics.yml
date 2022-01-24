@@ -391,7 +391,7 @@ economia:
     - flat
     - tax
     - juros
-social:
+causas sociais:
     - social
     - sociais
     - socialismo
@@ -434,14 +434,6 @@ social:
     - imigrantes
     - minoria
     - minorias
-    - cigano
-    - ciganos
-    - cigana
-    - ciganas
-    - preto
-    - pretos
-    - preta
-    - pretas
     - mulher
     - mulheres
     - pessoa de cor
@@ -450,13 +442,6 @@ social:
     - cancel culture
     - progressista
     - progressistas
-    - conservador
-    - conservadora
-    - conservadores
-    - conservadoras
-    - tradição
-    - tradições
-    - tradicional
     - reforma
     - reformas
     - reformado
@@ -677,6 +662,8 @@ infrastrutura:
     - ciclagem
     - bicicleta
     - bicicletas
+    - aeroporto
+    - aeroportos
     - transporte
     - transportes
     - mobilidade
