@@ -3,15 +3,14 @@ import os
 import sys
 
 sys.path.append("utils/")
-from data_utils import DATA_DIR, load_yaml_file, load_markdown_file
-from nlp_utils import get_sentences
-from viz_utils import get_word_cloud
-
-DATA_NAME = "portugal_2022"
-PARTY_DATA = load_yaml_file(os.path.join(DATA_DIR, DATA_NAME, "parties_data.yml"))
-PARTY_NAMES = list(PARTY_DATA.keys())
-TOPICS = load_yaml_file(os.path.join(DATA_DIR, DATA_NAME, "topics.yml"))
-APPROACHES = load_yaml_file(os.path.join(DATA_DIR, DATA_NAME, "approaches.yml"))
+from data_utils import DATA_DIR
+from app_utils import (
+    DATA_NAME,
+    PARTY_DATA,
+    PARTY_NAMES,
+    PARTY_FULL_NAMES,
+    display_main_analysis,
+)
 
 
 def geral():
@@ -24,30 +23,8 @@ def geral():
         "não estiver aberta, clica no símbolo ☰ no canto superior direito) "
         "e escolha a opção 'Individual'."
     )
-    # load data
-    programs_txt = [
-        load_markdown_file(os.path.join(DATA_DIR, DATA_NAME, "programs", f"{party}.md"))
-        for party in PARTY_NAMES
-    ]
-    sentences = [get_sentences(txt) for txt in programs_txt]
-    # flatten
-    sentences = [sent for sublist in sentences for sent in sublist]
-    # word cloud card
-    st.subheader("Palavras mais frequentes")
-    st.image(os.path.join(DATA_DIR, DATA_NAME, "word_clouds", "all_parties.png"))
-    # with st.spinner("A analisar sentimentos..."):
-    # with st.spinner("A analisar discurso ódio..."):
-    left_col, right_col = st.columns(2)
-    with left_col:
-        st.subheader("Tópicos nos programas")
-        # TODO
-        st.subheader("Análise de sentimentos")
-        # TODO
-    with right_col:
-        st.subheader("Racionalidade vs Intuição")
-        # TODO
-        st.subheader("Percentagem estimada de discurso de ódio")
-        # TODO
+    # main analysis layout
+    display_main_analysis("all_parties")
 
 
 def individual():
@@ -59,4 +36,16 @@ def individual():
         "analisar através do menu na barra lateral (se não estiver aberta, "
         "clica no símbolo ☰ no canto superior direito)."
     )
+    # party selection
+    party = st.sidebar.selectbox("Escolha o partido", PARTY_FULL_NAMES)
+    party_key = [
+        party_name
+        for party_name in PARTY_NAMES
+        if PARTY_DATA[party_name]["full_name"] == party
+    ][0]
+    left_col, right_col = st.columns([1, 3])
+    left_col.image(os.path.join(DATA_DIR, DATA_NAME, "logos", f"{party_key}.png"))
+    right_col.title(f"{party}")
+    # main analysis layout
+    display_main_analysis(party)
     # with st.expander("Possíveis frases de ódio"):

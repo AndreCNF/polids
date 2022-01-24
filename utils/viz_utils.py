@@ -99,7 +99,9 @@ def plot_topical_presence(
     return fig
 
 
-def plot_approaches(sentences: List[str], approaches: Dict[str, List[str]]) -> Figure:
+def plot_approaches(
+    sentences: List[str], approaches: Dict[str, List[str]], title: str = None
+) -> Figure:
     """
     Plot the approaches taken to language and policy.
 
@@ -108,6 +110,8 @@ def plot_approaches(sentences: List[str], approaches: Dict[str, List[str]]) -> F
             List of sentences to analyse.
         approaches (Dict[str, List[str]]):
             Dictionary of words per approach.
+        title (str):
+            Title of the plot.
 
     Returns:
         Figure:
@@ -142,7 +146,7 @@ def plot_approaches(sentences: List[str], approaches: Dict[str, List[str]]) -> F
         )
     )
     fig.update_layout(
-        title="Racionalidade vs Intuição",
+        title=title,
         barmode="stack",
         xaxis=dict(
             showgrid=False,  # thin lines in the background
@@ -158,13 +162,15 @@ def plot_approaches(sentences: List[str], approaches: Dict[str, List[str]]) -> F
     return fig
 
 
-def plot_sentiment(df: pd.DataFrame) -> Figure:
+def plot_sentiment(df: pd.DataFrame, title: str = None) -> Figure:
     """
     Plot the predicted sentiment of the sentences.
 
     Args:
         df (pd.DataFrame):
             Dataframe with the outputs of a sentiment analysis model.
+        title (str):
+            Title of the plot.
 
     Returns:
         Figure:
@@ -178,7 +184,7 @@ def plot_sentiment(df: pd.DataFrame) -> Figure:
             float(sentiments_count[sentiments_count.label == label].percent)
             for label in labels_order
         ],
-        title="Sentiment analysis",
+        title=title,
     )
     fig.update_traces(
         marker_color=["gray", "green", "red"],
@@ -191,13 +197,15 @@ def plot_sentiment(df: pd.DataFrame) -> Figure:
     return fig
 
 
-def plot_hate_speech(df: pd.DataFrame) -> Figure:
+def plot_hate_speech(df: pd.DataFrame, title: str = None) -> Figure:
     """
     Show the percentage of estimated hate speech sentences.
 
     Args:
         df (pd.DataFrame):
             Dataframe with the outputs of a hate speech model.
+        title (str):
+            Title of the plot.
 
     Returns:
         Figure:
@@ -208,7 +216,7 @@ def plot_hate_speech(df: pd.DataFrame) -> Figure:
         go.Indicator(
             mode="number",
             value=hate_count[hate_count.label == "ódio"].percent.values[0],
-            title="Potencial discurso de ódio",
+            title=title,
             number=dict(suffix="%", valueformat=".2f"),
             delta=dict(position="top", reference=320),
             domain=dict(x=[0, 1], y=[0, 1]),
