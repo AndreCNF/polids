@@ -154,7 +154,10 @@ def get_sentiment(sentences: List[str]) -> pd.DataFrame:
         pd.DataFrame:
             Sentiment of the sentences.
     """
-    sentiment_outputs = [SENTIMENT_TASK(sentence) for sentence in tqdm(sentences)]
+    sentiment_outputs = [
+        SENTIMENT_TASK(sentence)
+        for sentence in tqdm(sentences, desc="Sentiment analysis")
+    ]
     sentiments_dict = dict(label=[], score=[], sentence=[])
     for idx, output in enumerate(sentiment_outputs):
         sentiments_dict["label"].append(output[0]["label"])
@@ -179,7 +182,9 @@ def get_hate_speech(sentences: List[str]) -> pd.DataFrame:
         pd.DataFrame:
             Hate speech of the sentences.
     """
-    hate_outputs = [HATE_TASK(sentence) for sentence in tqdm(sentences)]
+    hate_outputs = [
+        HATE_TASK(sentence) for sentence in tqdm(sentences, desc="Hate speech analysis")
+    ]
     hate_dict = dict(label=[], score=[], sentence=[])
     for idx, output in enumerate(hate_outputs):
         hate_dict["label"].append(output[0]["label"])
