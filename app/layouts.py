@@ -47,9 +47,11 @@ def individual():
     left_col.image(os.path.join(DATA_DIR, DATA_NAME, "logos", f"{party_key}.png"))
     right_col.title(f"{party}")
     # main analysis layout
-    hate_df, program_txt = display_main_analysis(party_key)
+    nlp_df, program_txt = display_main_analysis(party_key)
     with st.expander("Possíveis frases de ódio"):
-        hate_sentences = list(hate_df.loc[hate_df.label == "ódio", "sentence"])
+        hate_sentences = list(
+            nlp_df.loc[nlp_df.hate_speech_label == "ódio", "sentence"]
+        )
         if len(hate_sentences) == 0:
             st.info("ℹ️ Não foram encontradas frases de ódio para este partido 👍")
         else:

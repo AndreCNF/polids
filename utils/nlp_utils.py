@@ -166,7 +166,9 @@ def get_sentiment(sentences: List[str]) -> pd.DataFrame:
     return sentiment_df
 
 
-def get_hate_speech(sentences: List[str], sentiment_df: pd.DataFrame) -> pd.DataFrame:
+def get_hate_speech(
+    sentences: List[str], sentiment_df: pd.DataFrame, label_col: str = "label"
+) -> pd.DataFrame:
     """
     Get the hate speech of a list of sentences.
 
@@ -175,6 +177,8 @@ def get_hate_speech(sentences: List[str], sentiment_df: pd.DataFrame) -> pd.Data
             List of sentences to analyse.
         sentiment_df (pd.DataFrame):
             Sentiment of the sentences.
+        label_col (str):
+            Column of the sentiment dataframe that contains the sentiment.
 
     Returns:
         pd.DataFrame:
@@ -194,7 +198,7 @@ def get_hate_speech(sentences: List[str], sentiment_df: pd.DataFrame) -> pd.Data
         hate_dict["sentence"].append(sentences[idx])
     hate_df = pd.DataFrame(hate_dict)
     hate_df["label"] = hate_df.label.map(dict(HATE="ódio", NON_HATE="neutro"))
-    hate_condition = (hate_df.label == "ódio") & (sentiment_df.label == "negativo")
+    hate_condition = (hate_df.label == "ódio") & (sentiment_df[label_col] == "negativo")
     hate_df.loc[hate_condition, "label"] = "ódio"
     hate_df.loc[~hate_condition, "label"] = "neutro"
     return hate_df

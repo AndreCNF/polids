@@ -38,19 +38,21 @@ def load_markdown_file(file_path):
         return markdown_str
 
 
-def get_counts(df: pd.DataFrame) -> pd.DataFrame:
+def get_counts(df: pd.DataFrame, label_col: str = "label") -> pd.DataFrame:
     """
     Get the labels count in a dataframe.
 
     Args:
         df (pd.DataFrame):
             Dataframe to get the counts from.
+        label_col (str):
+            Column name of the label column.
 
     Returns:
         counts_df:
             Dataframe with the counts.
     """
-    count_df = df.label.value_counts().to_frame().reset_index()
-    count_df.columns = ["label", "sentence_count"]
+    count_df = df[label_col].value_counts().to_frame().reset_index()
+    count_df.columns = [label_col, "sentence_count"]
     count_df["percent"] = count_df.sentence_count / count_df.sentence_count.sum() * 100
     return count_df

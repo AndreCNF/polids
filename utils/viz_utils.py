@@ -174,7 +174,9 @@ def plot_approaches(
     return fig
 
 
-def plot_sentiment(df: pd.DataFrame, title: str = None, height: int = 300) -> Figure:
+def plot_sentiment(
+    df: pd.DataFrame, title: str = None, height: int = 300, label_col: str = "label"
+) -> Figure:
     """
     Plot the predicted sentiment of the sentences.
 
@@ -185,17 +187,19 @@ def plot_sentiment(df: pd.DataFrame, title: str = None, height: int = 300) -> Fi
             Title of the plot.
         height (int):
             Height of the plot.
+        label_col (str):
+            Column name of the sentiment.
 
     Returns:
         Figure:
             Plotly figure with the percentage of hate speech.
     """
-    sentiments_count = get_counts(df)
+    sentiments_count = get_counts(df, label_col=label_col)
     labels_order = ["neutro", "positivo", "negativo"]
     fig = px.bar(
         x=labels_order,
         y=[
-            float(sentiments_count[sentiments_count.label == label].percent)
+            float(sentiments_count[sentiments_count[label_col] == label].percent)
             for label in labels_order
         ],
         title=title,
@@ -213,7 +217,9 @@ def plot_sentiment(df: pd.DataFrame, title: str = None, height: int = 300) -> Fi
     return fig
 
 
-def plot_hate_speech(df: pd.DataFrame, title: str = None, height: int = 300) -> Figure:
+def plot_hate_speech(
+    df: pd.DataFrame, title: str = None, height: int = 300, label_col: str = "label"
+) -> Figure:
     """
     Show the percentage of estimated hate speech sentences.
 
@@ -224,14 +230,16 @@ def plot_hate_speech(df: pd.DataFrame, title: str = None, height: int = 300) -> 
             Title of the plot.
         height (int):
             Height of the plot.
+        label_col (str):
+            Column name of the hate speech.
 
     Returns:
         Figure:
             Plotly figure with the percentage of hate speech.
     """
-    hate_count = get_counts(df)
+    hate_count = get_counts(df, label_col=label_col)
     try:
-        hate_percent = hate_count[hate_count.label == "ódio"].percent.values[0]
+        hate_percent = hate_count[hate_count[label_col] == "ódio"].percent.values[0]
     except IndexError:
         hate_percent = 0
     fig = go.Figure(
