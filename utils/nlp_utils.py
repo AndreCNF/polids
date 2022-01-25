@@ -5,18 +5,6 @@ import pandas as pd
 from tqdm.auto import tqdm
 from transformers import pipeline
 
-# NLP models
-SPACY_NLP = spacy.load("pt_core_news_lg")
-SPACY_NLP.max_length = 8000000
-sentiment_model_path = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
-SENTIMENT_TASK = pipeline(
-    "sentiment-analysis", model=sentiment_model_path, tokenizer=sentiment_model_path
-)
-hate_model_path = "Hate-speech-CNERG/dehatebert-mono-portugese"
-HATE_TASK = pipeline(
-    "text-classification", model=hate_model_path, tokenizer=hate_model_path
-)
-
 
 def _add_sentence_to_list(sentence: str, sentences_list: List[str]):
     """
@@ -87,7 +75,9 @@ def get_words(text: str) -> List[str]:
         List[str]:
             List of words.
     """
-    doc = SPACY_NLP(text)
+    nlp = spacy.load("pt_core_news_lg")
+    nlp.max_length = 8000000
+    doc = nlp(text)
     words = [
         word.text.replace("\n", "").replace("*", "")  # remove new line and bold symbols
         for word in doc
@@ -154,8 +144,12 @@ def get_sentiment(sentences: List[str]) -> pd.DataFrame:
         pd.DataFrame:
             Sentiment of the sentences.
     """
+    sentiment_model_path = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
+    sentiment_task = pipeline(
+        "sentiment-analysis", model=sentiment_model_path, tokenizer=sentiment_model_path
+    )
     sentiment_outputs = [
-        SENTIMENT_TASK(sentence)
+        sentiment_task(sentence)
         for sentence in tqdm(sentences, desc="Sentiment analysis")
     ]
     sentiments_dict = dict(label=[], score=[], sentence=[])
@@ -182,8 +176,12 @@ def get_hate_speech(sentences: List[str]) -> pd.DataFrame:
         pd.DataFrame:
             Hate speech of the sentences.
     """
+    hate_model_path = "Hate-speech-CNERG/dehatebert-mono-portugese"
+    hate_task = pipeline(
+        "text-classification", model=hate_model_path, tokenizer=hate_model_path
+    )
     hate_outputs = [
-        HATE_TASK(sentence) for sentence in tqdm(sentences, desc="Hate speech analysis")
+        hate_task(sentence) for sentence in tqdm(sentences, desc="Hate speech analysis")
     ]
     hate_dict = dict(label=[], score=[], sentence=[])
     for idx, output in enumerate(hate_outputs):

@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import List
 import streamlit as st
 import os
 import pandas as pd
@@ -100,22 +100,28 @@ def display_main_analysis(party: str):
     st.image(os.path.join(DATA_DIR, DATA_NAME, "word_clouds", "all_parties.png"))
     with st.spinner("A analisar sentimentos..."):
         sentiment_df = get_sentiment_df(party=party, data_name=DATA_NAME)
-    with st.spinner("A analisar discurso ódio..."):
+    with st.spinner("A analisar discurso de ódio..."):
         hate_df = get_hate_speech_df(party=party, data_name=DATA_NAME)
+    st.subheader("Tópicos nos programas")
+    st.plotly_chart(
+        plot_topical_presence(
+            sentences,
+            TOPICS,
+            color=PARTY_DATA[party]["color"] if party != "all_parties" else "gray",
+            height=300,
+        ),
+        use_container_width=True,
+    )
     left_col, right_col = st.columns(2)
     with left_col:
-        st.subheader("Tópicos nos programas")
-        st.plotly_chart(
-            plot_topical_presence(
-                sentences,
-                TOPICS,
-                color=PARTY_DATA[party] if party != "all_parties" else "gray",
-            )
-        )
         st.subheader("Análise de sentimentos")
-        st.plotly_chart(plot_sentiment(sentiment_df))
+        st.plotly_chart(
+            plot_sentiment(sentiment_df, height=300), use_container_width=True
+        )
     with right_col:
         st.subheader("Racionalidade vs Intuição")
-        st.plotly_chart(plot_approaches(sentences, APPROACHES))
+        st.plotly_chart(
+            plot_approaches(sentences, APPROACHES, height=40), use_container_width=True
+        )
         st.subheader("Percentagem estimada de discurso de ódio")
-        st.plotly_chart(plot_hate_speech(hate_df))
+        st.plotly_chart(plot_hate_speech(hate_df, height=100), use_container_width=True)

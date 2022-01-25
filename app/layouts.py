@@ -43,9 +43,9 @@ def individual():
         for party_name in PARTY_NAMES
         if PARTY_DATA[party_name]["full_name"] == party
     ][0]
-    left_col, right_col = st.columns([1, 3])
+    left_col, right_col = st.columns([1, 5])
     left_col.image(os.path.join(DATA_DIR, DATA_NAME, "logos", f"{party_key}.png"))
     right_col.title(f"{party}")
     # main analysis layout
-    display_main_analysis(party)
+    display_main_analysis(party_key)
     # with st.expander("Possíveis frases de ódio"):

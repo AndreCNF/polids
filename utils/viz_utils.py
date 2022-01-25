@@ -58,6 +58,7 @@ def plot_topical_presence(
     topics: Dict[str, List[str]],
     title: str = None,
     color: str = "blue",
+    height: int = 300,
 ) -> Figure:
     """
     Plot the number of sentences per topic.
@@ -71,6 +72,8 @@ def plot_topical_presence(
             Title of the plot.
         color (str):
             Color of the bars in the plot.
+        height (int):
+            Height of the plot.
 
     Returns:
         Figure:
@@ -94,13 +97,18 @@ def plot_topical_presence(
         xaxis_title="Percentagem de frases topicais no texto",
         yaxis_title="Tópico",
         yaxis=dict(categoryorder="category descending"),
+        margin=dict(l=0, r=0, b=0, t=0, pad=0),
+        height=height,
     )
     fig.update_traces(marker_color=color)
     return fig
 
 
 def plot_approaches(
-    sentences: List[str], approaches: Dict[str, List[str]], title: str = None
+    sentences: List[str],
+    approaches: Dict[str, List[str]],
+    title: str = None,
+    height: int = 300,
 ) -> Figure:
     """
     Plot the approaches taken to language and policy.
@@ -112,6 +120,8 @@ def plot_approaches(
             Dictionary of words per approach.
         title (str):
             Title of the plot.
+        height (int):
+            Height of the plot.
 
     Returns:
         Figure:
@@ -158,11 +168,13 @@ def plot_approaches(
             zeroline=False,  # thick line at x=0
             visible=False,  # numbers below
         ),
+        margin=dict(l=0, r=0, b=0, t=0, pad=0),
+        height=height,
     )
     return fig
 
 
-def plot_sentiment(df: pd.DataFrame, title: str = None) -> Figure:
+def plot_sentiment(df: pd.DataFrame, title: str = None, height: int = 300) -> Figure:
     """
     Plot the predicted sentiment of the sentences.
 
@@ -171,6 +183,8 @@ def plot_sentiment(df: pd.DataFrame, title: str = None) -> Figure:
             Dataframe with the outputs of a sentiment analysis model.
         title (str):
             Title of the plot.
+        height (int):
+            Height of the plot.
 
     Returns:
         Figure:
@@ -193,11 +207,13 @@ def plot_sentiment(df: pd.DataFrame, title: str = None) -> Figure:
     fig.update_layout(
         xaxis_title="Sentimento",
         yaxis_title="Percentagem de frases",
+        margin=dict(l=0, r=0, b=0, t=0, pad=0),
+        height=height,
     )
     return fig
 
 
-def plot_hate_speech(df: pd.DataFrame, title: str = None) -> Figure:
+def plot_hate_speech(df: pd.DataFrame, title: str = None, height: int = 300) -> Figure:
     """
     Show the percentage of estimated hate speech sentences.
 
@@ -206,21 +222,32 @@ def plot_hate_speech(df: pd.DataFrame, title: str = None) -> Figure:
             Dataframe with the outputs of a hate speech model.
         title (str):
             Title of the plot.
+        height (int):
+            Height of the plot.
 
     Returns:
         Figure:
             Plotly figure with the percentage of hate speech.
     """
     hate_count = get_counts(df)
+    try:
+        hate_percent = hate_count[hate_count.label == "ódio"].percent.values[0]
+    except IndexError:
+        hate_percent = 0
     fig = go.Figure(
         go.Indicator(
             mode="number",
-            value=hate_count[hate_count.label == "ódio"].percent.values[0],
+            value=hate_percent,
             title=title,
             number=dict(suffix="%", valueformat=".2f"),
             delta=dict(position="top", reference=320),
             domain=dict(x=[0, 1], y=[0, 1]),
         )
     )
-    fig.update_layout(paper_bgcolor="darkred", font_color="white")
+    fig.update_layout(
+        paper_bgcolor="darkred",
+        font_color="white",
+        margin=dict(l=0, r=0, b=0, t=0, pad=0),
+        height=height,
+    )
     return fig
