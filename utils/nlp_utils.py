@@ -157,20 +157,22 @@ def get_sentiment(sentences: List[str]) -> pd.DataFrame:
         sentiments_dict["label"].append(output[0]["label"])
         sentiments_dict["score"].append(output[0]["score"])
         sentiments_dict["sentence"].append(sentences[idx])
-    sentiments_df = pd.DataFrame(sentiments_dict)
-    sentiments_df["label"] = sentiments_df.label.map(
+    sentiment_df = pd.DataFrame(sentiments_dict)
+    sentiment_df["label"] = sentiment_df.label.map(
         dict(Positive="positivo", Negative="negativo", Neutral="neutro")
     )
-    return sentiments_df
+    return sentiment_df
 
 
-def get_hate_speech(sentences: List[str]) -> pd.DataFrame:
+def get_hate_speech(sentences: List[str], sentiment_df: pd.DataFrame) -> pd.DataFrame:
     """
     Get the hate speech of a list of sentences.
 
     Args:
         sentences (str):
             List of sentences to analyse.
+        sentiment_df (pd.DataFrame):
+            Sentiment of the sentences.
 
     Returns:
         pd.DataFrame:
@@ -190,10 +192,7 @@ def get_hate_speech(sentences: List[str]) -> pd.DataFrame:
         hate_dict["sentence"].append(sentences[idx])
     hate_df = pd.DataFrame(hate_dict)
     hate_df["label"] = hate_df.label.map(dict(HATE="ódio", NON_HATE="neutro"))
-    hate_df["label"] = hate_df.apply(
-        lambda row: "HATE"
-        if ((row.label == "HATE") & (row.score > 0.7))
-        else "NON_HATE",
-        axis=1,
-    )
+    hate_condition = (hate_df.label == "ódio") & (sentiment_df.label == "negativo")
+    hate_df.loc[hate_condition, "label"] = "ódio"
+    hate_df.loc[~hate_condition, "label"] = "neutro"
     return hate_df

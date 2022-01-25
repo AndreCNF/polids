@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union, Tuple
 import streamlit as st
 import os
 import pandas as pd
@@ -20,7 +20,7 @@ TOPICS = load_yaml_file(os.path.join(DATA_DIR, DATA_NAME, "topics.yml"))
 APPROACHES = load_yaml_file(os.path.join(DATA_DIR, DATA_NAME, "approaches.yml"))
 
 
-def get_sentences_from_party(party: str) -> List[str]:
+def get_sentences_from_party(party: str) -> Tuple[List[str], Union[None, str]]:
     """
     Get the list of sentences for a party.
 
@@ -31,6 +31,8 @@ def get_sentences_from_party(party: str) -> List[str]:
     Returns:
         List[str]:
             List of sentences for the party.
+        str:
+            Party program.
     """
     if party == "all_parties":
         party_files = os.listdir(os.path.join(DATA_DIR, DATA_NAME, "programs"))
@@ -41,12 +43,13 @@ def get_sentences_from_party(party: str) -> List[str]:
         sentences = [get_sentences(txt) for txt in programs_txt]
         # flatten
         sentences = [sent for sublist in sentences for sent in sublist]
+        return sentences, None
     else:
         program_txt = load_markdown_file(
             os.path.join(DATA_DIR, DATA_NAME, "programs", f"{party}.md")
         )
         sentences = get_sentences(program_txt)
-    return sentences
+        return sentences, program_txt
 
 
 @st.experimental_memo
@@ -64,12 +67,14 @@ def get_sentiment_df(party: str, data_name: str = "portugal_2022") -> pd.DataFra
         sentiment_df:
             Dataframe with the sentiment data.
     """
-    sentences = get_sentences_from_party(party)
+    sentences, _ = get_sentences_from_party(party)
     return get_sentiment(sentences)
 
 
 @st.experimental_memo
-def get_hate_speech_df(party: str, data_name: str = "portugal_2022") -> pd.DataFrame:
+def get_hate_speech_df(
+    party: str, data_name: str, sentiment_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     Get the hate speech dataframe for a party and cache it.
 
@@ -78,30 +83,41 @@ def get_hate_speech_df(party: str, data_name: str = "portugal_2022") -> pd.DataF
             Party to get the hate speech dataframe for. Can also be "all_parties".
         data_name (str):
             Name of the data to get the hate speech dataframe for.
+        sentiment_df (pd.DataFrame):
+            Dataframe with the sentiment data.
 
     Returns:
         hate_speech_df:
             Dataframe with the hate speech data.
     """
-    sentences = get_sentences_from_party(party)
-    return get_hate_speech(sentences)
+    sentences, _ = get_sentences_from_party(party)
+    return get_hate_speech(sentences, sentiment_df)
 
 
-def display_main_analysis(party: str):
+def display_main_analysis(party: str) -> Union[None, Tuple[pd.DataFrame, str]]:
     """
     Display the main analysis for a party.
 
     Args:
         party (str):
             Party to display the main analysis for.
+
+    Returns:
+        pd.DataFrame:
+            Dataframe with the hate speech outputs.
+            Only returned if the party is not "all_parties".
+        str:
+            Party program.
     """
-    sentences = get_sentences_from_party(party)
+    sentences, program_txt = get_sentences_from_party(party)
     st.subheader("Palavras mais frequentes")
-    st.image(os.path.join(DATA_DIR, DATA_NAME, "word_clouds", "all_parties.png"))
+    st.image(os.path.join(DATA_DIR, DATA_NAME, "word_clouds", f"{party}.png"))
     with st.spinner("A analisar sentimentos..."):
         sentiment_df = get_sentiment_df(party=party, data_name=DATA_NAME)
     with st.spinner("A analisar discurso de ódio..."):
-        hate_df = get_hate_speech_df(party=party, data_name=DATA_NAME)
+        hate_df = get_hate_speech_df(
+            party=party, data_name=DATA_NAME, sentiment_df=sentiment_df
+        )
     st.subheader("Tópicos nos programas")
     st.plotly_chart(
         plot_topical_presence(
@@ -125,3 +141,5 @@ def display_main_analysis(party: str):
         )
         st.subheader("Percentagem estimada de discurso de ódio")
         st.plotly_chart(plot_hate_speech(hate_df, height=100), use_container_width=True)
+    if party != "all_parties":
+        return hate_df, program_txt

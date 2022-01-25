@@ -26,12 +26,12 @@ words = {
     for party in tqdm(party_names, desc="Getting words")
 }
 # get word cloud for each party
-# for party in tqdm(party_names, desc="Getting word clouds"):
-#     get_word_cloud(
-#         words=words[party],
-#         image_path=os.path.join(DATA_DIR, args.data_name, "word_clouds"),
-#         image_name=f"{party}.png",
-#     )
+for party in tqdm(party_names, desc="Getting word clouds"):
+    get_word_cloud(
+        words=words[party],
+        image_path=os.path.join(DATA_DIR, args.data_name, "word_clouds"),
+        image_name=f"{party}.png",
+    )
 # get word cloud for all parties
 print("Getting word cloud for all parties...")
 all_words = [word for party in party_names for word in words[party]]

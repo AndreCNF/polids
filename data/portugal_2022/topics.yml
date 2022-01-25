@@ -171,6 +171,10 @@ ciência:
     - r&d
     - i&d
     - research
+    - estudo
+    - estudos
+    - estudar
+    - testar
 tecnologia e empreendedorismo:
     - tecnologia
     - tecnológico
@@ -392,9 +396,6 @@ economia:
     - tax
     - juros
 causas sociais:
-    - social
-    - sociais
-    - socialismo
     - rendimento
     - rendimentos
     - rendimento básico
@@ -438,8 +439,6 @@ causas sociais:
     - mulheres
     - pessoa de cor
     - pessoas de cor
-    - cultura de cancelamento
-    - cancel culture
     - progressista
     - progressistas
     - reforma
