@@ -20,7 +20,7 @@ def geral():
     init_info.info(
         "ℹ️ Nesta página, tens uma visão geral de todos os partidos. "
         "Para veres o resultado de cada partido, abre a barra lateral (se "
-        "não estiver aberta, clica no símbolo ☰ no canto superior direito) "
+        "não estiver aberta, clica no símbolo > no canto superior esquerdo) "
         "e escolha a opção 'Individual'."
     )
     # main analysis layout
@@ -34,7 +34,7 @@ def individual():
     init_info.info(
         "ℹ️ Aqui encontras a análise de cada partido. Podes escolher qual "
         "analisar através do menu na barra lateral (se não estiver aberta, "
-        "clica no símbolo ☰ no canto superior direito)."
+        "clica no símbolo > no canto superior esquerdo)."
     )
     # party selection
     party = st.sidebar.selectbox("Escolha o partido", PARTY_FULL_NAMES)
