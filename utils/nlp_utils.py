@@ -102,6 +102,8 @@ def get_words(text: str) -> List[str]:
         for word in words
         if word not in ["se", "há", "política", "político", "políticos", "políticas"]
     ]
+    # remove words with less than 3 characters
+    words = [word for word in words if len(word) > 2]
     return words
 
 
