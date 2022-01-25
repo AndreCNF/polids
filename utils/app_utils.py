@@ -45,8 +45,6 @@ def get_sentences_from_party(party: str) -> Tuple[List[str], Union[None, str]]:
         sentences = [sent for sublist in sentences for sent in sublist]
         return sentences, None
     else:
-        st.write(os.path.join(DATA_DIR, DATA_NAME, "programs", f"{party}.md"))
-        st.write(os.getcwd())
         program_txt = load_markdown_file(
             os.path.join(DATA_DIR, DATA_NAME, "programs", f"{party}.md")
         )
