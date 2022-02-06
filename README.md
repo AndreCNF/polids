@@ -5,7 +5,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/andrecnf/polids/main/app/app.py)
 
-Analysis of electoral programs and output of it through apps.
+Analysis of electoral manifestos and output of it through apps.
 
 </div>
 
@@ -25,7 +25,7 @@ A common way to visualise the content of a text is through a word cloud, a visua
 
 The style for this type of word cloud was obtained from this [article](https://towardsdatascience.com/how-to-make-word-clouds-in-python-that-dont-suck-86518cdcb61f).
 
-## Topical presence
+## Topic presence
 
 Politics tends to mainly address a set of core topics, for which each party defines their priority and intentions. In order to better understand their stance and how it correlates to our own, I created a simple regex process to estimate the percentage of sentences in the parties' manifesto that address each of the following topics:
 * Climate
