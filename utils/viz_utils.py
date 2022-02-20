@@ -11,7 +11,12 @@ from data_utils import get_counts
 from nlp_utils import get_topical_sentences
 
 
-def get_word_cloud(words: List[str], max_words=500, image_path=None, image_name=None):
+def get_word_cloud(
+    words: List[str],
+    max_words: int = 500,
+    image_path: str = None,
+    image_name: str = None,
+):
     """
     Create a word cloud based on a set of words.
 
