@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "elections-analysis"
+name = "polids"
 version = "0.1.0"
-description = "Analysis of electoral programs and output of it through apps."
+description = "Analysis of political data and output of it through apps."
 authors = ["AndreCNF <andrecnf@gmail.com>"]
 license = "MIT License"
 

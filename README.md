@@ -5,7 +5,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/andrecnf/polids/main/app/app.py)
 
-Analysis of electoral manifestos and output of it through apps.
+Analysis of political data and output of it through apps.
 
 </div>
 
@@ -58,3 +58,7 @@ You can see which words are defined for each approach [here](https://github.com/
 ## Hate speech
 
 The rise of populism and extremism often comes along with a rise in hate speech. As such, I've thought that it would be interesting to see what hate speech exists in each party's manifesto. For this task, I've used an [hate speech detection model from HuggingFace Models](https://huggingface.co/Hate-speech-CNERG/dehatebert-mono-portugese).
+
+## Parliament proposals and votes
+
+[Coming soon...](https://twitter.com/andrecnferreira/status/1676151049273442304?s=20) 🔜
