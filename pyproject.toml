@@ -1,27 +1,9 @@
-[tool.poetry]
+[project]
 name = "polids"
-version = "0.1.0"
+version = "2.0.0"
 description = "Analysis of political data and output of it through apps."
 authors = ["AndreCNF <andrecnf@gmail.com>"]
 license = "MIT License"
-
-[tool.poetry.dependencies]
-python = ">=3.8,<4.0"
-numpy = "^1.22.0"
-PyYAML = "^6.0"
-ipywidgets = "^7.6.5"
-streamlit = "^1.4.0"
-wordcloud = "^1.8.1"
-spacy = "^3.2.1"
-plotly = "^5.5.0"
-transformers = "^4.15.0"
-torch = "^1.10.1"
-sentencepiece = "^0.1.96"
-watchdog = "^2.1.6"
-
-[tool.poetry.dev-dependencies]
-black = {version = "^21.12b0", allow-prereleases = true}
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+readme = "README.md"
+requires-python = ">=3.13, <4.0"
+dependencies = []
