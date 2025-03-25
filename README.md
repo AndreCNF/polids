@@ -32,4 +32,4 @@ To ensure code is formatted correctly before committing, set up pre-commit hooks
    pre-commit run --all-files
    ```
 
-This will use `ruff` (via `uv`) to format your code automatically.
+This will use `ruff` to format your code automatically.
