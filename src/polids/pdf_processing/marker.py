@@ -46,5 +46,9 @@ class MarkerPDFProcessor(PDFProcessor):
         text, _, _ = text_from_rendered(rendered)
         # Remove {page_number} from separators
         cleaned_text = re.sub(r"\{\d+\}(-{48})", r"\1", text)
+        # Remove image references
+        cleaned_text = re.sub(r"!\[.*?\]\([^\)]+\)", "", cleaned_text)
         # Split the cleaned text into pages
-        return cleaned_text.split(48 * "-")
+        text_split_by_pages = cleaned_text.split(48 * "-")[1:]
+        # Trim leading and trailing whitespace from each page
+        return [page.strip() for page in text_split_by_pages]

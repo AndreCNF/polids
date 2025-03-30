@@ -2,5 +2,6 @@
 
 from .base import PDFProcessor
 from .marker import MarkerPDFProcessor
+from .openai_processor import OpenAIPDFProcessor
 
-__all__ = ["PDFProcessor", "MarkerPDFProcessor"]
+__all__ = ["PDFProcessor", "MarkerPDFProcessor", "OpenAIPDFProcessor"]
