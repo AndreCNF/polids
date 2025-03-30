@@ -2,8 +2,8 @@
 name = "polids"
 version = "2.0.0"
 description = "Analysis of political data and output of it through apps."
-authors = ["AndreCNF <andrecnf@gmail.com>"]
-license = "MIT License"
+authors = [{ name = "AndreCNF", email = "andrecnf@gmail.com" }]
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.13, <4.0"
 dependencies = [
@@ -14,13 +14,27 @@ dependencies = [
     "llama-cloud-services>=0.6.8",
     "llama-index-core>=0.12.26",
     "llama-index-readers-file>=0.4.7",
+    "loguru>=0.7.3",
     "marker-pdf>=0.2.17",
     "nbformat>=5.10.4",
     "ollama>=0.4.7",
     "openai>=1.68.2",
     "pdf2image>=1.17.0",
+    "pillow>=10.4.0",
     "plotly>=6.0.1",
     "pymupdf>=1.25.4",
     "pymupdf4llm>=0.0.18",
     "python-dotenv>=1.1.0",
+    "sentence-transformers>=4.0.1",
+]
+
+[tool.setuptools]
+packages = { find = { where = ["src"] } }
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
 ]
