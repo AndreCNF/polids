@@ -13,7 +13,29 @@ Analysis of political data and output of it through apps.
 
 This repo is currently undergoing refactoring, so as to become more easily applicable to elections in any time, in any language.
 
-## Setting up Pre-commit Hooks
+## Setup
+### Installation
+
+To install the package and its dependencies, use [uv]() and:
+
+1. Install dependencies:
+
+   Just the basics:
+   ```bash
+   uv sync
+   ```
+
+   Including dev dependencies:
+   ```bash
+   uv sync --all-extras --dev
+   ```
+
+1. Install the package:
+   ```bash
+   uv pip install -e .
+   ```
+
+### Setting up Pre-commit Hooks
 
 To ensure code is formatted correctly before committing, set up pre-commit hooks:
 
