@@ -16,7 +16,7 @@ This repo is currently undergoing refactoring, so as to become more easily appli
 ## Setup
 ### Installation
 
-To install the package and its dependencies, use [uv]() and:
+To install the package and its dependencies, use [uv](https://docs.astral.sh/uv/) and:
 
 1. Install dependencies:
 
@@ -39,19 +39,19 @@ To install the package and its dependencies, use [uv]() and:
 
 To ensure code is formatted correctly before committing, set up pre-commit hooks:
 
-1. Install `pre-commit`:
+1. Setup `pre-commit` by installing the dev dependencies:
    ```bash
-   pip install pre-commit
+   uv sync --dev
    ```
 
 2. Install the hooks:
    ```bash
-   pre-commit install
+   uv run pre-commit install
    ```
 
 3. Run the hooks manually on all files (optional):
    ```bash
-   pre-commit run --all-files
+   uv run pre-commit run --all-files
    ```
 
 This will use `ruff` to format your code automatically.

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
+
 class PDFProcessor(ABC):
     @abstractmethod
     def process(self, pdf_path: Path) -> List[str]:
