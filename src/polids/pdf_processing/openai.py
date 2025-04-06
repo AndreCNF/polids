@@ -56,12 +56,14 @@ class OpenAIPDFProcessor:
             base64_images.append(img_str)
         return base64_images
 
-    def process(self, pdf_path: Path) -> List[str]:
+    def process(self, pdf_path: Path, max_pages: int | None = None) -> List[str]:
         """
         Processes a PDF file and extracts text from each page in markdown format.
 
         Args:
             pdf_path (Path): Path to the PDF file.
+            max_pages (int): Maximum number of pages to process. If None, process all pages.
+                Defaults to None.
 
         Returns:
             List[str]: List of markdown strings, one per page.
@@ -70,6 +72,8 @@ class OpenAIPDFProcessor:
         markdown_pages = []
 
         for i, image_base64 in enumerate(base64_images):
+            if max_pages and i >= max_pages:
+                break
             try:
                 completion = self.client.beta.chat.completions.parse(
                     # Using the mini version for cheaper processing; setting a specific version for reproducibility
@@ -92,7 +96,7 @@ class OpenAIPDFProcessor:
                             ],
                         }
                     ],
-                    response_format=ParsedPDFText,
+                    response_format=ParsedPDFText,  # Specify the schema for the structured output
                     temperature=0,  # Low temperature should lead to less hallucination
                     seed=42,  # Fix the seed for reproducibility
                 )
