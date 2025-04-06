@@ -28,4 +28,5 @@ jobs:
       - name: Run tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGFUSE__LOG_TO_LANGFUSE: false  # Don't log traces while testing
         run: uv run pytest tests

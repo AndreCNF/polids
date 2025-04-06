@@ -1,11 +1,7 @@
-import sys
 from pathlib import Path
 import difflib
 import numpy as np
 from sentence_transformers import SentenceTransformer
-
-# Add the `src` directory to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from polids.pdf_processing.openai_processor import OpenAIPDFProcessor  # type: ignore[import]
 
@@ -269,6 +265,3 @@ toriais) e captação de fundos nacionais,
 europeus e internacionais.""",
         result[3],
     ), "Fourth page content doesn't match expected text with sufficient similarity"
-
-
-test_process_pdf()

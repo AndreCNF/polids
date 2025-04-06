@@ -130,6 +130,15 @@ wheels = [
 ]
 
 [[package]]
+name = "backoff"
+version = "2.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/d7/5bbeb12c44d7c4f2fb5b56abce497eb5ed9f34d85701de869acedd602619/backoff-2.2.1.tar.gz", hash = "sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba", size = 17001 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/df/73/b6e24bd22e6720ca8ee9a85a0c4a2971af8497d8f3193fa05390cbd46e09/backoff-2.2.1-py3-none-any.whl", hash = "sha256:63579f9a0628e06278f7e47b7d7d5b6ce20dc65c5e96a6f3ca99a6adca0396e8", size = 15148 },
+]
+
+[[package]]
 name = "banks"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -981,6 +990,25 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/59/73/fa26bbb747a9ea4fca6b01453aa22990d52ab62dd61384f1ac0dc9d4e7ba/jupyterlab_widgets-3.0.13.tar.gz", hash = "sha256:a2966d385328c1942b683a8cd96b89b8dd82c8b8f81dda902bb2bc06d46f5bed", size = 203556 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a9/93/858e87edc634d628e5d752ba944c2833133a28fa87bb093e6832ced36a3e/jupyterlab_widgets-3.0.13-py3-none-any.whl", hash = "sha256:e3cda2c233ce144192f1e29914ad522b2f4c40e77214b0cc97377ca3d323db54", size = 214392 },
+]
+
+[[package]]
+name = "langfuse"
+version = "2.60.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "backoff" },
+    { name = "httpx" },
+    { name = "idna" },
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "requests" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/06/54/8f7888631843e1b8af9c96a021f7913068af8972d9dfa9ffdcda7774c3b5/langfuse-2.60.2.tar.gz", hash = "sha256:b63cba99c24358b3ec4bde63fb76c2825d162c4f5670862e6be43b9dafb530d9", size = 152439 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/06/64/58eb43a7a21e0aeabb004703834b242f1538e0daac1058a3b6f8b5f1d110/langfuse-2.60.2-py3-none-any.whl", hash = "sha256:749c875b808a386fe4608f6ffa44474bb6f984b3a510596e1fb1a49f8c973064", size = 274986 },
 ]
 
 [[package]]
@@ -1855,6 +1883,7 @@ dependencies = [
     { name = "google-genai" },
     { name = "ipykernel" },
     { name = "ipywidgets" },
+    { name = "langfuse" },
     { name = "llama-cloud-services" },
     { name = "llama-index-core" },
     { name = "llama-index-readers-file" },
@@ -1886,6 +1915,7 @@ requires-dist = [
     { name = "google-genai", specifier = ">=1.7.0" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "ipywidgets", specifier = ">=8.1.5" },
+    { name = "langfuse", specifier = ">=2.60.2" },
     { name = "llama-cloud-services", specifier = ">=0.6.8" },
     { name = "llama-index-core", specifier = ">=0.12.26" },
     { name = "llama-index-readers-file", specifier = ">=0.4.7" },

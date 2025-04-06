@@ -2,12 +2,19 @@ import base64
 from pathlib import Path
 from typing import List
 from pdf2image import convert_from_path
-from openai import OpenAI
 from io import BytesIO
 from dotenv import load_dotenv
 import os
 from pydantic import BaseModel
 from loguru import logger  # type: ignore[import]
+
+from polids.config import settings
+
+if settings.langfuse.log_to_langfuse:
+    # If Langfuse is enabled, use the Langfuse OpenAI client
+    from langfuse.openai import OpenAI  # type: ignore[import]
+else:
+    from openai import OpenAI
 
 
 # Set a Pydantic model for the OpenAI API response;
