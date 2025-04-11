@@ -30,8 +30,9 @@ dependencies = [
     "sentence-transformers>=4.0.1",
 ]
 
-[tool.setuptools]
-packages = { find = { where = ["src"] } }
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
