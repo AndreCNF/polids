@@ -1,8 +1,14 @@
 from typing import List
 from loguru import logger
-from openai import OpenAI
+from polids.party_name_extraction.base import PartyNameExtractor, PartyName
+
 from polids.config import settings
-from .base import PartyName, PartyNameExtractor
+
+if settings.langfuse.log_to_langfuse:
+    # If Langfuse is enabled, use the Langfuse OpenAI client
+    from langfuse.openai import OpenAI  # type: ignore[import]
+else:
+    from openai import OpenAI
 
 
 class OpenAIPartyNameExtractor(PartyNameExtractor):
