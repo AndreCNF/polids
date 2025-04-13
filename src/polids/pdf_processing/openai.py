@@ -3,12 +3,11 @@ from pathlib import Path
 from typing import List
 from pdf2image import convert_from_path
 from io import BytesIO
-from dotenv import load_dotenv
-import os
 from pydantic import BaseModel
 from loguru import logger  # type: ignore[import]
 
 from polids.config import settings
+from polids.pdf_processing.base import PDFProcessor
 
 if settings.langfuse.log_to_langfuse:
     # If Langfuse is enabled, use the Langfuse OpenAI client
@@ -25,13 +24,9 @@ class ParsedPDFText(BaseModel):
     text: str
 
 
-class OpenAIPDFProcessor:
-    def __init__(self, api_key: str | None = None):
-        load_dotenv()
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OpenAI API key is required.")
-        self.client = OpenAI(api_key=self.api_key)
+class OpenAIPDFProcessor(PDFProcessor):
+    def __init__(self):
+        self.client = OpenAI(api_key=settings.openai_api_key)
 
     def pdf_to_base64_images(
         self, pdf_path: Path, image_format: str = "PNG", dpi: int = 300

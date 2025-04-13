@@ -2,7 +2,7 @@ import os
 import re
 from pathlib import Path
 from typing import List
-from .base import PDFProcessor
+from polids.pdf_processing.base import PDFProcessor
 from marker.converters.pdf import PdfConverter  # type: ignore[import]
 from marker.models import create_model_dict  # type: ignore[import]
 from marker.output import text_from_rendered  # type: ignore[import]
