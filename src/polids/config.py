@@ -66,9 +66,13 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         env_nested_delimiter="__",
         case_sensitive=False,
+        extra="allow",  # Allow extra fields in the environment
     )
 
     openai_api_key: str | None = Field(default=None, description="OpenAI API Key")
+    perplexity_api_key: str | None = Field(
+        default=None, description="Perplexity API Key"
+    )
     langfuse: LangfuseConfig = LangfuseConfig()
 
 
