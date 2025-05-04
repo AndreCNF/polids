@@ -47,6 +47,42 @@ def compute_semantic_similarity(text1: str, text2: str) -> tuple[float, bool]:
     return similarity, True
 
 
+def compute_text_similarity_scores(
+    expected: str,
+    actual: str,
+) -> tuple[float, float]:
+    """
+    Computes various similarity scores between two text strings.
+
+    Args:
+        expected (str): The expected text content.
+        actual (str): The actual text content to compare against.
+
+    Returns:
+        tuple[float, float]: A tuple containing:
+            - Character-based similarity score
+            - Semantic similarity score
+    """
+    # Clean the texts for character-based similarity
+    expected_clean = remove_formatting_from_text(expected)
+    actual_clean = remove_formatting_from_text(actual)
+
+    if expected_clean in actual_clean:
+        # If the expected text is contained in the actual text,
+        # return maximum similarity scores
+        return 1.0, 1.0
+
+    # Calculate character-based similarity
+    char_similarity = difflib.SequenceMatcher(
+        None, expected_clean, actual_clean
+    ).ratio()
+
+    # Calculate semantic similarity
+    semantic_similarity, _ = compute_semantic_similarity(expected, actual)
+
+    return char_similarity, semantic_similarity
+
+
 def is_text_similar(
     expected: str,
     actual: str,
@@ -68,23 +104,13 @@ def is_text_similar(
     Returns:
         bool: True if the texts are similar enough by any method, False otherwise.
     """
-    # Method 1: Check if expected text is contained within actual text
-    expected_clean = remove_formatting_from_text(expected)
-    actual_clean = remove_formatting_from_text(actual)
-
-    if expected_clean in actual_clean:
+    char_similarity, semantic_similarity = compute_text_similarity_scores(
+        expected, actual
+    )
+    if (
+        char_similarity >= difflib_threshold
+        or semantic_similarity >= semantic_threshold
+    ):
         return True
-
-    # Method 2: Check character-based similarity ratio
-    char_similarity = difflib.SequenceMatcher(
-        None, expected_clean, actual_clean
-    ).ratio()
-    if char_similarity >= difflib_threshold:
-        return True
-
-    # Method 3: Check semantic similarity (with original formatting)
-    semantic_similarity, success = compute_semantic_similarity(expected, actual)
-    if success and semantic_similarity >= semantic_threshold:
-        return True
-
-    return False
+    else:
+        return False
