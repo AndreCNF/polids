@@ -62,7 +62,7 @@ def map_topic(input_topic: str, topic_mapping: dict[str, list[str]]) -> str:
         topic_mapping (dict[str, list[str]]): A dictionary mapping output topics to input topics.
 
     Returns:
-        str: The mapped topic.
+        str: The mapped topic or the most similar unified topic as a fallback.
     """
     mapped_output_topics = []
     for output_topic, input_topics in topic_mapping.items():

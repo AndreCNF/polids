@@ -144,10 +144,21 @@ def test_map_input_topic_to_unified_topic(
             f"Got: {result}"
         )
 
+
+def test_fallback_for_unmapped_topic(
+    topic_unifier: OpenAITopicUnifier, topics_to_unify: dict[str, int]
+) -> None:
+    """
+    Test the fallback behavior for unmapped topics.
+    Verifies that a nonexistent topic returns the most similar unified topic.
+    """
+    topic_unifier.process(topics_to_unify)
+
     input_topic = "Nonexistent Topic"
     result = topic_unifier.map_input_topic_to_unified_topic(input_topic)
     assert result in topic_unifier.topic_mapping, (
-        f"Nonexistent topic '{input_topic}' was not handled correctly.\n"
+        f"Fallback for unmapped topic failed.\n"
+        f"Input topic: '{input_topic}'\n"
         f"Expected one of: {list(topic_unifier.topic_mapping.keys())}\n"
         f"Got: {result}"
     )
