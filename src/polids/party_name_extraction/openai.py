@@ -38,7 +38,8 @@ class OpenAIPartyNameExtractor(PartyNameExtractor):
         while not is_confident and idx < len(chunked_text):
             current_chunks = chunked_text[idx : idx + batch_size]
             completion = self.client.beta.chat.completions.parse(
-                model="gpt-4o-mini-2024-07-18",
+                # Using the nano version for cheaper processing; setting a specific version for reproducibility
+                model="gpt-4.1-nano-2025-04-14",
                 messages=[
                     {
                         "role": "system",
