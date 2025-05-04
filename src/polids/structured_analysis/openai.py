@@ -29,8 +29,8 @@ class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
             ManifestoChunkAnalysis: A structured analysis of the manifesto chunk.
         """
         completion = self.client.beta.chat.completions.parse(
-            # Using the larger GPT 4o model to ensure better output quality; setting a specific version for reproducibility
-            model="gpt-4o-2024-11-20",
+            # Using the GPT 4.1 mini model that gets good enough output quality for cheap; setting a specific version for reproducibility
+            model="gpt-4.1-mini-2025-04-14",
             messages=[
                 {
                     "role": "system",
