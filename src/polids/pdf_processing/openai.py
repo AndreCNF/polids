@@ -72,7 +72,7 @@ class OpenAIPDFProcessor(PDFProcessor):
             try:
                 completion = self.client.beta.chat.completions.parse(
                     # Using the mini version for cheaper processing; setting a specific version for reproducibility
-                    model="gpt-4o-mini-2024-07-18",
+                    model="gpt-4.1-mini-2025-04-14",
                     messages=[
                         {
                             "role": "user",
