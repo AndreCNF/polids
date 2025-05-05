@@ -12,12 +12,15 @@ dependencies = [
     "ipykernel>=6.29.5",
     "ipywidgets>=8.1.5",
     "langfuse>=2.60.2",
+    "lingua-language-detector>=2.1.0",
     "llama-cloud-services>=0.6.8",
     "llama-index-core>=0.12.26",
     "llama-index-readers-file>=0.4.7",
     "loguru>=0.7.3",
     "marker-pdf>=0.2.17",
+    "matplotlib>=3.10.1",
     "nbformat>=5.10.4",
+    "nltk>=3.9.1",
     "ollama>=0.4.7",
     "openai>=1.68.2",
     "pdf2image>=1.17.0",
@@ -28,6 +31,7 @@ dependencies = [
     "pymupdf4llm>=0.0.18",
     "python-dotenv>=1.1.0",
     "sentence-transformers>=4.0.1",
+    "wordcloud>=1.9.4",
 ]
 
 [build-system]
