@@ -13,17 +13,23 @@ def test_process_pdf():
     result = processor.process(pdf_path)
 
     # Assertions
-    assert len(result) > 0  # Ensure the output has at least one page
-    assert len(result) == 5  # Check if the output has the correct number of pages
+    assert len(result) > 0, (
+        f"Expected at least one page in the result, but got {len(result)}"
+    )
+    assert len(result) == 5, f"Expected 5 pages in the result, but got {len(result)}"
+
     # Check text similarity using multiple methods
     # For the shorter text blocks
-    assert remove_formatting_from_text(
-        "programa eleitoral legislativas 2022"
-    ) in remove_formatting_from_text(result[0]), (
-        f"First page content '{result[0]}' doesn't contain expected text 'programa eleitoral legislativas 2022'"
+    expected_text_0 = "programa eleitoral legislativas 2022"
+    assert remove_formatting_from_text(expected_text_0) in remove_formatting_from_text(
+        result[0]
+    ), (
+        f"First page content doesn't contain expected text.\n"
+        f"Expected (formatted): '{remove_formatting_from_text(expected_text_0)}'\n"
+        f"Actual (formatted): '{remove_formatting_from_text(result[0])}'"
     )
-    assert is_text_similar(
-        """Liberdade
+
+    expected_text_4 = """Liberdade
 Esquerda
 Europa
 Ecologia
@@ -32,41 +38,54 @@ Programa aprovado
 no Xi Congresso
 de dia 12 de dezembro
 dezembro
-de 2021""",
+de 2021"""
+    assert is_text_similar(
+        expected_text_4,
         result[4],
         difflib_threshold=0.7,
         semantic_threshold=0.7,
-    ), "Fifth page content doesn't match expected text with sufficient similarity"
-    assert is_text_similar(
-        """Índice
-igualdade, Justiça Social e liberdade
-Trabalho, rendimento, Tempo e Proteção Social
-Saúde
-Educação
-Conhecimento, Ciência e Ensino Superior
-Cultura e Arte
-Habitação e Espaço Público
-Coesão Territorial, Transportes e Mobilidade
-Emergência Climática e Energia
-Economia Circular
-Agricultura e Florestas
-Conservação da Natureza e Biodiversidade
-Bem-estar e Direitos dos Animais
-Águas, rios e Oceanos
-Justiça
-Estado e instituições
-Democracia
-Prevenção e Combate à Corrupção
-Soberania Digital
-Portugal na Europa e no Mundo""",
-        result[2],
-        difflib_threshold=0.7,
-        semantic_threshold=0.7,
-    ), "Third page content doesn't match expected text with sufficient similarity"
+    ), (
+        f"Fifth page content doesn't match expected text with sufficient similarity.\n"
+        f"Expected:\n{expected_text_4}\n\nActual:\n{result[4]}"
+    )
+
+    expected_words = {
+        "Índice",
+        "Desenvolvimento Ecológico e Solidário",
+        "Igualdade, Justiça Social e liberdade",
+        "Trabalho, Rendimento, Tempo e Proteção Social",
+        "Saúde",
+        "Educação",
+        "Conhecimento, Ciência e Ensino Superior",
+        "Cultura e Arte",
+        "Habitação e Espaço Público",
+        "Coesão Territorial, Transportes e Mobilidade",
+        "Emergência Climática e Energia",
+        "Economia Circular",
+        "Agricultura e Florestas",
+        "Conservação da Natureza e Biodiversidade",
+        "Bem-estar e Direitos dos Animais",
+        "Águas, rios e Oceanos",
+        "Justiça",
+        "Estado e instituições",
+        "Democracia",
+        "Prevenção e Combate à Corrupção",
+        "Soberania Digital",
+        "Portugal na Europa e no Mundo",
+    }
+    actual_content = remove_formatting_from_text(result[2])
+    missing_words = {
+        word
+        for word in expected_words
+        if remove_formatting_from_text(word) not in actual_content
+    }
+    assert not missing_words, (
+        f"The following expected words were not found in the third page content:\n{missing_words}\n\n"
+        f"Actual content:\n{result[2]}"
+    )
 
     # For the longer text blocks
-    assert is_text_similar(
-        """Concretizar o Futuro Uma sociedade justa num planeta saudável
+    expected_text_1 = """Concretizar o Futuro Uma sociedade justa num planeta saudável
 Este é o compromisso político do LIVRE
 para a próxima legislatura, com a defesa
 da justiça social e ambiental, com a igual-
@@ -136,11 +155,16 @@ da Assembleia da República porque acre-
 ditamos que não há igualdade sem ecolo-
 gia e liberdade sem democracia. Nestas
 legislativas a alternativa é LIVRE , o partido
-português da Esquerda Verde.""",
-        result[1],
-    ), "Second page content doesn't match expected text with sufficient similarity"
+português da Esquerda Verde."""
     assert is_text_similar(
-        """residentes não habituais, assim como a
+        expected_text_1,
+        result[1],
+    ), (
+        f"Second page content doesn't match expected text with sufficient similarity.\n"
+        f"Expected:\n{expected_text_1}\n\nActual:\n{result[1]}"
+    )
+
+    expected_text_3 = """residentes não habituais, assim como a
 promoção de uma maior fiscalização ao
 investimento estrangeiro.
 15 reforçar a exigência legislativa de
@@ -173,6 +197,11 @@ ciais, económicas, culturais), políticas do
 espaço e território (instrumentos de ges-
 tão territorial e planos e estratégias se-
 toriais) e captação de fundos nacionais,
-europeus e internacionais.""",
+europeus e internacionais."""
+    assert is_text_similar(
+        expected_text_3,
         result[3],
-    ), "Fourth page content doesn't match expected text with sufficient similarity"
+    ), (
+        f"Fourth page content doesn't match expected text with sufficient similarity.\n"
+        f"Expected:\n{expected_text_3}\n\nActual:\n{result[3]}"
+    )
