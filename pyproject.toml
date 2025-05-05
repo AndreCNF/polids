@@ -26,11 +26,13 @@ dependencies = [
     "pdf2image>=1.17.0",
     "pillow>=10.4.0",
     "plotly>=6.0.1",
+    "pycountry>=24.6.1",
     "pydantic-settings>=2.8.1",
     "pymupdf>=1.25.4",
     "pymupdf4llm>=0.0.18",
     "python-dotenv>=1.1.0",
     "sentence-transformers>=4.0.1",
+    "simplemma>=1.1.2",
     "wordcloud>=1.9.4",
 ]
 
