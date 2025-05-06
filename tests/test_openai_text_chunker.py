@@ -13,12 +13,12 @@ def sample_markdown_pages():
         "# Page 3\n\nContinuing from the previous page, this page elaborates on the topic introduced earlier.",
         "This is a standalone page with its own content.",
         "This page starts a new topic that will be expanded on the next page.",
-        "Building on the topic from the previous page, this page provides additional details.",
-        "# Página 1\n\nEsta é a primeira página do documento.",  # Portuguese
+        "Building on the topic from the previous page, this page provides final details.",
+        "# Página 1\n\nEsta é a primeira página de um novo documento.",  # Portuguese
         "# Página 2\n\nEsta é a segunda página do documento. Introduz um tópico que continua na próxima página.",  # Portuguese
         "# Página 3\n\nContinuando da página anterior, esta página elabora sobre o tópico introduzido anteriormente.",  # Portuguese
         "Esta é uma página independente com seu próprio conteúdo.",  # Portuguese
-        "# Página 1\n\nEsta es la primera página del documento.",  # Spanish
+        "# Página 1\n\nEsta es la primera página de un nuevo documento.",  # Spanish
         "# Página 2\n\nEsta es la segunda página del documento. Introduce un tema que continúa en la siguiente página.",  # Spanish
         "# Página 3\n\nContinuando desde la página anterior, esta página elabora sobre el tema introducido anteriormente.",  # Spanish
         "Esta es una página independiente con su propio contenido.",  # Spanish
@@ -56,12 +56,12 @@ def expected_chunks():
         ),
         SemanticChunksPerPage(
             chunks=[
-                "Building on the topic from the previous page, this page provides additional details."
+                "Building on the topic from the previous page, this page provides final details."
             ],
             last_chunk_incomplete=False,
         ),
         SemanticChunksPerPage(
-            chunks=["# Página 1\n\nEsta é a primeira página do documento."],
+            chunks=["# Página 1\n\nEsta é a primeira página de um novo documento."],
             last_chunk_incomplete=False,
         ),
         SemanticChunksPerPage(
@@ -81,7 +81,7 @@ def expected_chunks():
             last_chunk_incomplete=False,
         ),
         SemanticChunksPerPage(
-            chunks=["# Página 1\n\nEsta es la primera página del documento."],
+            chunks=["# Página 1\n\nEsta es la primera página de un nuevo documento."],
             last_chunk_incomplete=False,
         ),
         SemanticChunksPerPage(
@@ -109,11 +109,11 @@ def expected_merged_chunks_text():
         "# Page 1\n\nThis is the first page of the document.",
         "# Page 2\n\nThis is the second page of the document. It introduces a topic that continues onto the next page.\n\n# Page 3\n\nContinuing from the previous page, this page elaborates on the topic introduced earlier.",
         "This is a standalone page with its own content.",
-        "This page starts a new topic that will be expanded on the next page.\n\nBuilding on the topic from the previous page, this page provides additional details.",
-        "# Página 1\n\nEsta é a primeira página do documento.",
+        "This page starts a new topic that will be expanded on the next page.\n\nBuilding on the topic from the previous page, this page provides final details.",
+        "# Página 1\n\nEsta é a primeira página de um novo documento.",
         "# Página 2\n\nEsta é a segunda página do documento. Introduz um tópico que continua na próxima página.\n\n# Página 3\n\nContinuando da página anterior, esta página elabora sobre o tópico introduzido anteriormente.",
         "Esta é uma página independente com seu próprio conteúdo.",
-        "# Página 1\n\nEsta es la primera página del documento.",
+        "# Página 1\n\nEsta es la primera página de un nuevo documento.",
         "# Página 2\n\nEsta es la segunda página del documento. Introduce un tema que continúa en la siguiente página.\n\n# Página 3\n\nContinuando desde la página anterior, esta página elabora sobre el tema introducido anteriormente.",
         "Esta es una página independiente con su propio contenido.",
     ]
