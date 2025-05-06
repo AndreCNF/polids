@@ -17,9 +17,9 @@ def get_word_cloud(
             List of words to be included in the word cloud.
         max_words (int):
             Maximum number of words to be included in the word cloud.
-        image_path (str):
+        image_path (str | None):
             Path to the image file where to save the word cloud.
-        image_name (str):
+        image_name (str | None):
             Name of the image where to save the word cloud.
     """
 
