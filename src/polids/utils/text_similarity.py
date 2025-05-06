@@ -19,7 +19,7 @@ def remove_formatting_from_text(text: str) -> str:
     return "".join(filter(str.isalnum, text.lower()))
 
 
-def compute_semantic_similarity(text1: str, text2: str) -> tuple[float, bool]:
+def compute_semantic_similarity(text1: str, text2: str) -> float:
     """
     Computes semantic similarity between two texts using sentence embeddings.
     Works across multiple languages.
@@ -29,9 +29,7 @@ def compute_semantic_similarity(text1: str, text2: str) -> tuple[float, bool]:
         text2 (str): Second text for comparison
 
     Returns:
-        tuple[float, bool]: A tuple containing:
-            - The similarity score (0.0 to 1.0)
-            - A boolean indicating if the comparison was successful
+        float: Cosine similarity score between the two texts, between 0 and 1.
     """
     # Lazy-load the model only when needed
     model = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")  # type: ignore
@@ -44,7 +42,11 @@ def compute_semantic_similarity(text1: str, text2: str) -> tuple[float, bool]:
     similarity = np.dot(embedding1, embedding2) / (
         np.linalg.norm(embedding1) * np.linalg.norm(embedding2)
     )
-    return similarity, True
+
+    # Normalize the similarity score to be between 0 and 1
+    similarity = (similarity + 1) / 2
+
+    return similarity
 
 
 def compute_text_similarity_scores(
@@ -78,7 +80,7 @@ def compute_text_similarity_scores(
     ).ratio()
 
     # Calculate semantic similarity
-    semantic_similarity, _ = compute_semantic_similarity(expected, actual)
+    semantic_similarity = compute_semantic_similarity(expected, actual)
 
     return char_similarity, semantic_similarity
 
