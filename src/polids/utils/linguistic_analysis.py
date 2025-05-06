@@ -51,8 +51,8 @@ def detect_language(text: str) -> LanguageOfText:
         raise ValueError("Language detection failed.")
 
     # Get the language name and code
-    language_name = language.name.lower()
-    language_code = pycountry.languages.get(name=language_name.capitalize()).alpha_2
+    language_name = language.name.capitalize()  # Ensure proper capitalization
+    language_code = pycountry.languages.get(name=language_name).alpha_2
 
     return LanguageOfText(
         name=language_name,  # type: ignore
@@ -70,6 +70,8 @@ def get_clean_words_from_text(text: str) -> list[str]:
     Returns:
         list[str]: A list of cleaned words.
     """
+    if not text:
+        return []
     # Detect the language of the text
     language = detect_language(text)
     # Get the stopwords for the detected language
@@ -92,7 +94,7 @@ def get_clean_words_from_text(text: str) -> list[str]:
         and not any(char.isdigit() for char in w)
     ]
     # Stem words if they have a special character
-    stemmer = SnowballStemmer(language.name)
+    stemmer = SnowballStemmer(language.name.lower())
     filtered_words = [
         stemmer.stem(w) if any(char in string.punctuation for char in w) else w
         for w in filtered_words
