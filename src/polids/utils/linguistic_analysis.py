@@ -75,7 +75,7 @@ def get_clean_words_from_text(text: str) -> list[str]:
     # Detect the language of the text
     language = detect_language(text)
     # Get the stopwords for the detected language
-    stop_words = set(stopwords.words(language.name))
+    stop_words = set(stopwords.words(language.name.lower()))
     # Split the text into words
     word_tokens = word_tokenize(text)
     # Lowercase and trim words
