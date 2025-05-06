@@ -25,11 +25,6 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
 
-      - name: Download NLTK data
-        run: |
-          uv run python -m nltk.downloader stopwords
-          uv run python -m nltk.downloader punkt
-
       - name: Run tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
