@@ -27,6 +27,7 @@ dependencies = [
     "pillow>=10.4.0",
     "plotly>=6.0.1",
     "pycountry>=24.6.1",
+    "pydantic-extra-types>=2.10.4",
     "pydantic-settings>=2.8.1",
     "pymupdf>=1.25.4",
     "pymupdf4llm>=0.0.18",
