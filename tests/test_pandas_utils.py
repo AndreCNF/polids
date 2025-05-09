@@ -64,32 +64,32 @@ def test_expand_dict_columns_with_nested_dict_columns():
 
 def test_explode_list_columns_with_valid_list_columns():
     """Test exploding list columns in a DataFrame."""
-    df = pd.DataFrame({"id": [1, 2], "tags": [["tag1", "tag2"], ["tag3"]]})
+    df = pd.DataFrame({"item_id": [1, 2], "tags": [["tag1", "tag2"], ["tag3"]]})
     exploded_df = explode_list_columns(df)
-    expected_df = pd.DataFrame({"id": [1, 1, 2], "tags": ["tag1", "tag2", "tag3"]})
+    expected_df = pd.DataFrame({"item_id": [1, 1, 2], "tags": ["tag1", "tag2", "tag3"]})
     pd.testing.assert_frame_equal(exploded_df, expected_df, check_dtype=False)
 
 
 def test_explode_list_columns_with_no_list_columns():
     """Test DataFrame with no list columns remains unchanged."""
-    df = pd.DataFrame({"id": [1, 2], "value": [100, 200]})
+    df = pd.DataFrame({"item_id": [1, 2], "value": [100, 200]})
     exploded_df = explode_list_columns(df)
     pd.testing.assert_frame_equal(df, exploded_df)
 
 
 def test_explode_list_columns_with_empty_lists():
     """Test exploding list columns with empty lists."""
-    df = pd.DataFrame({"id": [1, 2], "tags": [[], ["tag1", "tag2"]]})
+    df = pd.DataFrame({"item_id": [1, 2], "tags": [[], ["tag1", "tag2"]]})
     exploded_df = explode_list_columns(df)
-    expected_df = pd.DataFrame({"id": [1, 2, 2], "tags": [None, "tag1", "tag2"]})
+    expected_df = pd.DataFrame({"item_id": [1, 2, 2], "tags": [None, "tag1", "tag2"]})
     pd.testing.assert_frame_equal(exploded_df, expected_df, check_dtype=False)
 
 
 def test_explode_list_columns_with_mixed_types():
     """Test exploding list columns with mixed types."""
-    df = pd.DataFrame({"id": [1, 2], "tags": [["tag1", 42], ["tag3"]]})
+    df = pd.DataFrame({"item_id": [1, 2], "tags": [["tag1", 42], ["tag3"]]})
     exploded_df = explode_list_columns(df)
-    expected_df = pd.DataFrame({"id": [1, 1, 2], "tags": ["tag1", 42, "tag3"]})
+    expected_df = pd.DataFrame({"item_id": [1, 1, 2], "tags": ["tag1", 42, "tag3"]})
     pd.testing.assert_frame_equal(exploded_df, expected_df, check_dtype=False)
 
 
@@ -113,7 +113,7 @@ def sample_pydantic_list():
 def test_convert_pydantic_to_dataframe(sample_pydantic_list):
     """Test converting a list of Pydantic models to a DataFrame."""
     df = convert_pydantic_to_dataframe(sample_pydantic_list)
-    assert "item_id" in df.columns, f"Expected 'id' in columns, got {df.columns}"
+    assert "item_id" in df.columns, f"Expected 'item_id' in columns, got {df.columns}"
     assert "name" in df.columns, f"Expected 'name' in columns, got {df.columns}"
     assert "metadata_age" in df.columns, (
         f"Expected 'metadata_age' in columns, got {df.columns}"
@@ -121,7 +121,9 @@ def test_convert_pydantic_to_dataframe(sample_pydantic_list):
     assert "metadata_score" in df.columns, (
         f"Expected 'metadata_score' in columns, got {df.columns}"
     )
-    assert df["item_id"].tolist() == [1, 2], f"Expected [1, 2], got {df['id'].tolist()}"
+    assert df["item_id"].tolist() == [1, 2], (
+        f"Expected [1, 2], got {df['item_id'].tolist()}"
+    )
     assert df["name"].tolist() == ["Alice", "Bob"], (
         f"Expected ['Alice', 'Bob'], got {df['name'].tolist()}"
     )
