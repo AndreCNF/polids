@@ -8,7 +8,7 @@ class HateSpeechDetection(BaseModel):
     Model representing the analysis of hate speech within a text.
     """
 
-    hate_speech: bool = Field(
+    is_hate_speech: bool = Field(
         description=(
             "Boolean indicating if the text contains hate speech. Hate speech refers to any public expression "
             "that communicates hostility, animosity, or encourages violence, prejudice, discrimination, or "
@@ -19,7 +19,7 @@ class HateSpeechDetection(BaseModel):
     reason: str = Field(
         description=(
             "Detailed explanation justifying the classification as hate speech or not. "
-            "Include specific parts of the text that lead to this decision. If no hate speech is detected, explain why the content was determined safe."
+            "Include specific parts of the text that lead to this decision. If no hate speech is detected, this field should be empty."
         ),
     )
     targeted_groups: List[str] = Field(
@@ -39,18 +39,20 @@ class PoliticalCompass(BaseModel):
     - Social: perspective on personal freedom and state intervention (libertarian vs. authoritarian)
     """
 
-    economic: Literal["left", "center", "right"] = Field(
+    economic: float = Field(
         description=(
-            "Economic stance on the political spectrum. 'left' suggests support for cooperative or state-driven "
-            "economic models, 'right' indicates a free-market approach emphasizing individual competition, and "
-            "'center' represents a moderate position combining elements of both views."
+            "Economic stance on the political spectrum, represented as a float between -1 and 1. "
+            "-1 indicates a strong preference for cooperative or state-driven economic models (left), "
+            "1 indicates a strong preference for free-market approaches emphasizing individual competition (right), "
+            "and values near 0 represent moderate or centrist positions."
         ),
     )
-    social: Literal["libertarian", "center", "authoritarian"] = Field(
+    social: float = Field(
         description=(
-            "Social stance on the political spectrum. 'libertarian' represents maximal personal freedom with minimal state control, "
-            "'authoritarian' indicates a preference for obedience to authority and strict social order, and "
-            "'center' denotes a balanced or moderate view."
+            "Social stance on the political spectrum, represented as a float between -1 and 1. "
+            "-1 indicates a strong preference for maximal personal freedom with minimal state control (libertarian), "
+            "1 indicates a strong preference for obedience to authority and strict social order (authoritarian), "
+            "and values near 0 represent balanced or centrist views."
         ),
     )
 
