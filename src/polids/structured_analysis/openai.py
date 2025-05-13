@@ -3,6 +3,7 @@ from polids.structured_analysis.base import (
     ManifestoChunkAnalysis,
     StructuredChunkAnalyzer,
 )
+from polids.utils.backoff import llm_backoff
 
 if settings.langfuse.log_to_langfuse:
     # If Langfuse is enabled, use the Langfuse OpenAI client
@@ -18,6 +19,7 @@ class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
         """
         self.client = OpenAI(api_key=settings.openai_api_key)
 
+    @llm_backoff
     def process(self, chunk_text: str) -> ManifestoChunkAnalysis:
         """
         Processes a chunk of text from a political manifesto to extract structured analysis.

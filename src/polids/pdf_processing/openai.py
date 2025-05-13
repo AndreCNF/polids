@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from loguru import logger  # type: ignore[import]
 
 from polids.config import settings
+from polids.utils.backoff import llm_backoff
 from polids.pdf_processing.base import PDFProcessor
 
 if settings.langfuse.log_to_langfuse:
@@ -51,6 +52,45 @@ class OpenAIPDFProcessor(PDFProcessor):
             base64_images.append(img_str)
         return base64_images
 
+    @llm_backoff
+    def _call_openai_completion(
+        self, image_base64: str, pdf_path: Path, page_number: int
+    ) -> str | None:
+        """
+        Calls the OpenAI chat completion API for a single page image, with backoff applied.
+        """
+        completion = self.client.beta.chat.completions.parse(
+            model="gpt-4.1-mini-2025-04-14",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Parse all of the text from this image into a Markdown format.",
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_base64}",
+                                "detail": "high",  # High detail for better OCR quality
+                            },
+                        },
+                    ],
+                }
+            ],
+            response_format=ParsedPDFText,  # Specify the schema for the structured output
+            temperature=0,  # Low temperature should lead to less hallucination
+            seed=42,  # Fix the seed for reproducibility
+        )
+        if completion.choices[0].message.parsed:
+            return completion.choices[0].message.parsed.text.strip()
+        else:
+            logger.warning(
+                f"Parsed result is None for page {page_number} of PDF '{pdf_path.stem}'"
+            )
+            return None
+
     def process(self, pdf_path: Path, max_pages: int | None = None) -> List[str]:
         """
         Processes a PDF file and extracts text from each page in markdown format.
@@ -70,36 +110,13 @@ class OpenAIPDFProcessor(PDFProcessor):
             if max_pages and i >= max_pages:
                 break
             try:
-                completion = self.client.beta.chat.completions.parse(
-                    # Using the mini version for cheaper processing; setting a specific version for reproducibility
-                    model="gpt-4.1-mini-2025-04-14",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": "Parse all of the text from this image into a Markdown format.",
-                                },
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/png;base64,{image_base64}",
-                                        "detail": "high",  # High detail for better OCR quality
-                                    },
-                                },
-                            ],
-                        }
-                    ],
-                    response_format=ParsedPDFText,  # Specify the schema for the structured output
-                    temperature=0,  # Low temperature should lead to less hallucination
-                    seed=42,  # Fix the seed for reproducibility
+                result = self._call_openai_completion(
+                    image_base64=image_base64,
+                    pdf_path=pdf_path,
+                    page_number=i + 1,
                 )
-                if completion.choices[0].message.parsed:
-                    markdown_pages.append(
-                        # Strip leading and trailing whitespace from the parsed text
-                        completion.choices[0].message.parsed.text.strip()
-                    )
+                if result is not None:
+                    markdown_pages.append(result)
                 else:
                     logger.warning(
                         f"Parsed result is None for page {i + 1} of PDF '{pdf_path.stem}'"
