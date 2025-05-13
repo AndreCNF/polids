@@ -3,6 +3,7 @@ from polids.structured_analysis.base import (
     ManifestoChunkAnalysis,
     StructuredChunkAnalyzer,
 )
+from polids.utils.backoff import llm_backoff
 
 if settings.langfuse.log_to_langfuse:
     # If Langfuse is enabled, use the Langfuse OpenAI client
@@ -18,6 +19,7 @@ class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
         """
         self.client = OpenAI(api_key=settings.openai_api_key)
 
+    @llm_backoff
     def process(self, chunk_text: str) -> ManifestoChunkAnalysis:
         """
         Processes a chunk of text from a political manifesto to extract structured analysis.
@@ -73,22 +75,24 @@ class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
   a. Set to true ONLY if the text contains explicit hostility, encourages discrimination, or promotes prejudice against identifiable groups.
   b. For subfield reason:
     - If hate speech is present: Quote SPECIFIC phrases and explain how they constitute hate speech.
-    - If no hate speech: Briefly explain why the content was determined safe.
+    - If no hate speech: Leave empty.
   c. For subfield targeted_groups: List ONLY groups explicitly targeted (if any) or leave empty.
 - If hate_speech is false, targeted_groups should be empty.
 - Place values under field name: hate_speech.
 
 5. Political Compass Analysis:
-- Assess political orientation with particular attention to explicit policy indicators:
-  a. Economic:
-    - "left": Strong indicators include support for wealth redistribution, expanded public services, market regulation, nationalization.
-    - "right": Strong indicators include tax reduction, privatization, deregulation, free market emphasis, cutting government spending.
-    - "center": Represents a mixed approach, balancing market principles with social welfare or targeted regulation (e.g., social market economy).
-  b. Social:
-    - "libertarian": Emphasizes personal freedoms, minimal state intervention in private life, civil liberties expansion.
-    - "authoritarian": Emphasizes order, discipline, social conformity, expanded state powers over individuals.
-    - "center": Balanced approach to personal freedoms and societal order.
-- Provide selections under field name: political_compass with subfields economic and social.
+- Assess political orientation using two axes, each represented as a float between -1 and 1:
+  a. Economic axis (economic):
+  - -1.0: Strongly left (e.g., strong support for wealth redistribution, expanded public services, market regulation, nationalization)
+  -  0.0: Center (mixed approach, balancing market principles with social welfare or targeted regulation)
+  - +1.0: Strongly right (e.g., strong support for tax reduction, privatization, deregulation, free market emphasis, cutting government spending)
+  - Use intermediate values for nuanced positions (e.g., -0.5 for moderately left, +0.5 for moderately right).
+  b. Social axis (social):
+  - -1.0: Strongly libertarian (emphasizes personal freedoms, minimal state intervention in private life, civil liberties expansion)
+  -  0.0: Center (balanced approach to personal freedoms and societal order)
+  - +1.0: Strongly authoritarian (emphasizes order, discipline, social conformity, expanded state powers over individuals)
+- Use intermediate values for nuanced positions (e.g., -0.5 for moderately libertarian, +0.5 for moderately authoritarian).
+- Provide selections under field name: political_compass with subfields economic (float, -1 to 1) and social (float, -1 to 1).
 
 **Task**:
 Analyze the Markdown formatted text, applying the process described above.

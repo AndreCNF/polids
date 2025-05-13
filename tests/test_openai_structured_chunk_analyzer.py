@@ -17,10 +17,8 @@ def analyzer():
     "chunk_text, expected",
     [
         (
-            """- Recuperar a identidade ocidental e a matriz cultural cristã;
-- Repatriar imigrantes subsídio-dependentes, criminosos, ilegais e que sejam inadaptáveis em termos de cultura, costumes e comportamento;
+            """- Repatriar imigrantes subsídio-dependentes, criminosos, ilegais e que sejam inadaptáveis em termos de cultura, costumes e comportamento;
 - Cortar os apoios e subsídios (discriminação positiva) para as minorias étnicas;
-- Travar o crescimento do Islão em Portugal e proibir a construção de novas mesquitas;
 - Anular a lei do “casamento” entre pessoas do mesmo sexo;
 - Limitar o acesso às forças armadas e demais forças de segurança só aos portugueses de raiz.""",
             ManifestoChunkAnalysis(
@@ -34,7 +32,7 @@ def analyzer():
                 sentiment="negative",
                 topic="migration",
                 hate_speech=HateSpeechDetection(
-                    hate_speech=True,
+                    is_hate_speech=True,
                     reason="The text includes explicit hostile statements such as repatriating immigrants labeled as 'subsidy-dependent, criminals, illegals' and cuts subsidies for ethnic minorities; it also targets Islam and same-sex marriage, promoting discrimination and exclusion against identifiable groups.",
                     targeted_groups=[
                         "immigrants",
@@ -44,73 +42,50 @@ def analyzer():
                     ],
                 ),
                 political_compass=PoliticalCompass(
-                    economic="right", social="authoritarian"
+                    economic=1.0,
+                    social=1.0,  # right/authoritarian
                 ),
             ),
         ),
         (
-            "**Criar uma taxa universal sobre o carbono**, no quadro de uma reforma fiscal ambiental...",
-            ManifestoChunkAnalysis(
-                policy_proposals=["Create a universal carbon tax."],
-                sentiment="positive",
-                topic="sustainability",
-                hate_speech=HateSpeechDetection(
-                    hate_speech=False,
-                    reason="The text does not contain any hate speech or discriminatory content.",
-                    targeted_groups=[],
-                ),
-                political_compass=PoliticalCompass(
-                    economic="left", social="libertarian"
-                ),
-            ),
-        ),
-        (
-            """### SIMPLIFICAÇÃO E DESAGRAVAMENTO DO IRS COM INTRODUÇÃO DE TAXA ÚNICA DE 15%
-
-- Implementação de uma taxa única de IRS de 15%, aplicada por igual a todos os rendimentos e para todos os contribuintes
-
-- Isenção de IRS para rendimentos de trabalho até remuneração mensal de cerca de €664
-
-- Isenção adicional de 200€ mensais por filho dependente e por progenitor (400€ em caso de famílias monoparentais)
-
-- Eliminação de todas as deduções e benefícios fiscais em sede de IRS, com exceção das mencionadas no ponto anterior
-
-- Transitoriamente, um sistema de duas taxas: 15% para rendimentos até 30.000€ e 28% no remanescente""",
+            """**Garantizar la renta básica universal y legalizar el matrimonio igualitario**.
+Aumentar la inversión pública en educación y salud gratuitas para todos. Eliminar barreras legales para la identidad de género y orientación sexual. Promover campañas de inclusión y diversidad.""",
             ManifestoChunkAnalysis(
                 policy_proposals=[
-                    "Implement a flat IRS rate of 15% for all income and taxpayers.",
-                    "Exempt IRS for work income up to approximately €664 per month.",
-                    "Additional exemption of €200 per month per dependent child and parent (or €400 for single-parent families).",
-                    "Eliminate all deductions and tax benefits in IRS, except those mentioned above.",
-                    "Temporarily, a two-rate system: 15% for income up to €30,000 and 28% on the remainder.",
+                    "Guarantee universal basic income.",
+                    "Legalize same-sex marriage.",
+                    "Increase public investment in free education and healthcare for all.",
+                    "Eliminate legal barriers based on gender identity or sexual orientation.",
+                    "Promote inclusion and diversity campaigns.",
                 ],
-                sentiment="neutral",
-                topic="economy",
+                sentiment="positive",
+                topic="rights",
                 hate_speech=HateSpeechDetection(
-                    hate_speech=False,
-                    reason="The text does not contain any hate speech or discriminatory content.",
+                    is_hate_speech=False,
+                    reason="",  # No reasoning if no hate speech
                     targeted_groups=[],
                 ),
                 political_compass=PoliticalCompass(
-                    economic="right", social="libertarian"
+                    economic=-1.0,
+                    social=-1.0,  # strongly left/libertarian
                 ),
             ),
         ),
         (
-            """# Identidade e Visão do Volt
-
-Imagina-te numa situação onde tu e os teus concidadãos teriam de desenhar de raiz a sociedade em que viveriam. Que tipo de sociedade escolherias?""",
+            """# Identité et vision du parti
+L'objectif est de créer une société équilibrée, où les libertés individuelles sont respectées, mais où il existe également des règles claires pour garantir le bien-être collectif.""",
             ManifestoChunkAnalysis(
                 policy_proposals=[],
                 sentiment="neutral",
                 topic="ideology",
                 hate_speech=HateSpeechDetection(
-                    hate_speech=False,
-                    reason="The text does not contain any hate speech or discriminatory content.",
+                    is_hate_speech=False,
+                    reason="",  # No reasoning if no hate speech
                     targeted_groups=[],
                 ),
                 political_compass=PoliticalCompass(
-                    economic="center", social="libertarian"
+                    economic=0.0,
+                    social=0.0,  # center/center
                 ),
             ),
         ),
@@ -166,23 +141,55 @@ def test_chunk_analysis(
     )
 
     # Check hate speech
-    assert result.hate_speech.hate_speech == expected.hate_speech.hate_speech, (
-        f"Hate speech mismatch: expected {expected.hate_speech}, got {result.hate_speech.hate_speech}"
+    assert result.hate_speech.is_hate_speech == expected.hate_speech.is_hate_speech, (
+        f"Hate speech mismatch: expected {expected.hate_speech}, got {result.hate_speech.is_hate_speech}"
     )
+    if not expected.hate_speech.is_hate_speech:
+        assert result.hate_speech.reason == "", (
+            f"Expected empty reason for no hate speech, got: '{result.hate_speech.reason}'"
+        )
     assert (len(expected.hate_speech.targeted_groups) == 0) == (
         len(result.hate_speech.targeted_groups) == 0
     ), (
         f"Targeted hate speech groups don't match. Expected: {expected.hate_speech.targeted_groups}, got: {result.hate_speech.targeted_groups}"
     )
 
-    # Check political compass
-    assert result.political_compass.economic in ["left", "center", "right"], (
-        f"Invalid economic compass value '{result.political_compass.economic}'. Expected one of 'left', 'center', or 'right'."
+    # Check political compass (floats, directionality)
+    assert isinstance(result.political_compass.economic, float), (
+        f"Economic compass value should be float, got {type(result.political_compass.economic)}"
     )
-    assert result.political_compass.social in [
-        "libertarian",
-        "center",
-        "authoritarian",
-    ], (
-        f"Invalid social compass value '{result.political_compass.social}'. Expected one of 'libertarian', 'center', or 'authoritarian'."
+    assert -1.0 <= result.political_compass.economic <= 1.0, (
+        f"Economic compass value {result.political_compass.economic} out of range [-1, 1]"
     )
+    assert isinstance(result.political_compass.social, float), (
+        f"Social compass value should be float, got {type(result.political_compass.social)}"
+    )
+    assert -1.0 <= result.political_compass.social <= 1.0, (
+        f"Social compass value {result.political_compass.social} out of range [-1, 1]"
+    )
+    # Check directionality (sign) for economic
+    if expected.political_compass.economic > 0:
+        assert result.political_compass.economic > 0.1, (
+            f"Expected economic compass to be positive (right), got {result.political_compass.economic}"
+        )
+    elif expected.political_compass.economic < 0:
+        assert result.political_compass.economic < -0.1, (
+            f"Expected economic compass to be negative (left), got {result.political_compass.economic}"
+        )
+    else:
+        assert abs(result.political_compass.economic) < 0.2, (
+            f"Expected economic compass to be near zero (center), got {result.political_compass.economic}"
+        )
+    # Check directionality (sign) for social
+    if expected.political_compass.social > 0:
+        assert result.political_compass.social > 0.1, (
+            f"Expected social compass to be positive (authoritarian), got {result.political_compass.social}"
+        )
+    elif expected.political_compass.social < 0:
+        assert result.political_compass.social < -0.1, (
+            f"Expected social compass to be negative (libertarian), got {result.political_compass.social}"
+        )
+    else:
+        assert abs(result.political_compass.social) < 0.2, (
+            f"Expected social compass to be near zero (center), got {result.political_compass.social}"
+        )

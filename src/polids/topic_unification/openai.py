@@ -3,6 +3,7 @@ from polids.topic_unification.base import (
     UnifiedTopicsOutput,
     TopicUnifier,
 )
+from polids.utils.backoff import llm_backoff
 
 if settings.langfuse.log_to_langfuse:
     # If Langfuse is enabled, use the Langfuse OpenAI client
@@ -108,6 +109,7 @@ class OpenAITopicUnifier(TopicUnifier):
         self.llm_name = llm_name
         self.system_prompt = system_prompt
 
+    @llm_backoff
     def get_unified_topics(self, input_markdown: str) -> UnifiedTopicsOutput:
         """
         Gets unified topics from the input Markdown text using OpenAI's API.
