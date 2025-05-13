@@ -10,6 +10,7 @@ else:
     from openai import OpenAI
 
 from polids.utils import is_text_similar
+from polids.utils.backoff import llm_backoff
 from polids.text_chunking.base import SemanticChunksPerPage, TextChunker
 
 
@@ -17,31 +18,24 @@ class OpenAITextChunker(TextChunker):
     def __init__(self):
         self.client = OpenAI(api_key=settings.openai_api_key)
 
-    def get_chunks(self, text_per_page: List[str]) -> List[SemanticChunksPerPage]:
-        chunk_outputs: list[SemanticChunksPerPage] = []
-        # Iterate through each page of the document, extracting semantic chunks
-        for idx, current_page_text in tqdm(
-            enumerate(text_per_page),
-            total=len(text_per_page),
-            desc="Processing pages",
-        ):
-            if idx == len(text_per_page) - 1:
-                next_page_preview = ""
-            else:
-                # Provide the LLM with a tweet-sized preview of the next page to check if the last chunk is incomplete
-                next_page_text = text_per_page[idx + 1]
-                next_page_preview = next_page_text.split("\n\n")[0][:280]
-            completion = self.client.beta.chat.completions.parse(
-                # Using the mini version for cheaper processing; setting a specific version for reproducibility
-                model="gpt-4.1-mini-2025-04-14",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an AI assistant specialized in semantic text chunking for Markdown documents. Your task is to divide the provided <current_page_text> into a list of semantically coherent chunks, preserving all original Markdown formatting exactly.",
-                    },
-                    {
-                        "role": "user",
-                        "content": f"""**Overall Goal:**
+    @llm_backoff
+    def _call_openai_chunk_completion(
+        self, current_page_text: str, next_page_preview: str
+    ) -> SemanticChunksPerPage:
+        """
+        Calls the OpenAI chat completion API for a single page chunking, with backoff applied.
+        """
+        completion = self.client.beta.chat.completions.parse(
+            # Using the mini version for cheaper processing; setting a specific version for reproducibility
+            model="gpt-4.1-mini-2025-04-14",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an AI assistant specialized in semantic text chunking for Markdown documents. Your task is to divide the provided <current_page_text> into a list of semantically coherent chunks, preserving all original Markdown formatting exactly.",
+                },
+                {
+                    "role": "user",
+                    "content": f"""**Overall Goal:**
 Analyze the <current_page_text> (which is in Markdown format from a political manifesto) and split it into semantically coherent chunks. **Each chunk should ideally represent a distinct policy proposal, argument, thematic topic, or logical section typical of such documents.** This chunking is intended to facilitate downstream NLP analysis for understanding policy positions and informing voters. Perform this task objectively based on text structure and topic shifts, regardless of the political viewpoint expressed. Use the <next_page_preview> **only** to determine if the very last chunk of the <current_page_text> is semantically incomplete because its specific topic or proposal clearly continues into the preview text.
 
 **Analysis Process:**
@@ -61,13 +55,32 @@ Analyze the <current_page_text> (which is in Markdown format from a political ma
 <next_page_preview>
 {next_page_preview}
 </next_page_preview>""",
-                    },
-                ],
-                response_format=SemanticChunksPerPage,  # Specify the schema for the structured output
-                temperature=0,  # Low temperature should lead to less hallucination
-                seed=42,  # Fix the seed for reproducibility
+                },
+            ],
+            response_format=SemanticChunksPerPage,  # Specify the schema for the structured output
+            temperature=0,  # Low temperature should lead to less hallucination
+            seed=42,  # Fix the seed for reproducibility
+        )
+        return completion.choices[0].message.parsed
+
+    def get_chunks(self, text_per_page: List[str]) -> List[SemanticChunksPerPage]:
+        chunk_outputs: list[SemanticChunksPerPage] = []
+        # Iterate through each page of the document, extracting semantic chunks
+        for idx, current_page_text in tqdm(
+            enumerate(text_per_page),
+            total=len(text_per_page),
+            desc="Processing pages",
+        ):
+            if idx == len(text_per_page) - 1:
+                next_page_preview = ""
+            else:
+                # Provide the LLM with a tweet-sized preview of the next page to check if the last chunk is incomplete
+                next_page_text = text_per_page[idx + 1]
+                next_page_preview = next_page_text.split("\n\n")[0][:280]
+
+            chunks_output = self._call_openai_chunk_completion(
+                current_page_text=current_page_text, next_page_preview=next_page_preview
             )
-            chunks_output = completion.choices[0].message.parsed
             assert isinstance(chunks_output, SemanticChunksPerPage), (
                 "Output does not match the expected schema."
             )

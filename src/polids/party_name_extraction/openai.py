@@ -3,6 +3,7 @@ from loguru import logger
 from polids.party_name_extraction.base import PartyNameExtractor, PartyName
 
 from polids.config import settings
+from polids.utils.backoff import llm_backoff
 
 if settings.langfuse.log_to_langfuse:
     # If Langfuse is enabled, use the Langfuse OpenAI client
@@ -18,36 +19,21 @@ class OpenAIPartyNameExtractor(PartyNameExtractor):
         """
         self.client = OpenAI(api_key=settings.openai_api_key)
 
-    def extract_party_names(
-        self, chunked_text: List[str], batch_size: int = 2
+    @llm_backoff
+    def _call_openai_party_name_completion(
+        self, current_chunks: list[str], previous_guess: PartyName
     ) -> PartyName:
-        """
-        Extracts a political party name from a list of pre-chunked text.
-
-        Args:
-            chunked_text (List[str]): A list of text chunks.
-            batch_size (int): Number of chunks to process in each batch.
-
-        Returns:
-            PartyName: A PartyName object representing the extracted party name.
-        """
-        is_confident = False
-        idx = 0
-        previous_guess = PartyName(full_name="", short_name="", is_confident=False)
-
-        while not is_confident and idx < len(chunked_text):
-            current_chunks = chunked_text[idx : idx + batch_size]
-            completion = self.client.beta.chat.completions.parse(
-                # Using the mini version for cheaper processing with good enough results; setting a specific version for reproducibility
-                model="gpt-4.1-mini-2025-04-14",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an AI assistant specialized in analyzing political manifestos to identify the name of the political party that authored the document. Your task is to extract the party's name from the provided <manifesto_text>, ensuring that the identification is confident and unambiguous. If the party name cannot be confidently identified, or if the text is vague, ambiguous, or mentions a party not affiliated with the manifesto, you must label the result as not confident (`is_confident = False`). Use the <previous_guess> to refer to the previous, non-confident guess of the party name as memory to refine your attempts.",
-                    },
-                    {
-                        "role": "user",
-                        "content": f"""**Overall Goal:**
+        completion = self.client.beta.chat.completions.parse(
+            # Using the mini version for cheaper processing with good enough results; setting a specific version for reproducibility
+            model="gpt-4.1-mini-2025-04-14",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an AI assistant specialized in analyzing political manifestos to identify the name of the political party that authored the document. Your task is to extract the party's name from the provided <manifesto_text>, ensuring that the identification is confident and unambiguous. If the party name cannot be confidently identified, or if the text is vague, ambiguous, or mentions a party not affiliated with the manifesto, you must label the result as not confident (`is_confident = False`). Use the <previous_guess> to refer to the previous, non-confident guess of the party name as memory to refine your attempts.",
+                },
+                {
+                    "role": "user",
+                    "content": f"""**Overall Goal:**
 Analyze the <manifesto_text> (which is in Markdown format from a political manifesto) and identify the name of the political party that authored it. **The identification must be confident and unambiguous.** If the text is vague, ambiguous, or mentions a party not affiliated with the manifesto, label the result as not confident (`is_confident = False`). Use the <previous_guess> to refer to the previous, non-confident guess of the party name as memory to refine your identification attempts.
 
 **Analysis Process:**
@@ -70,13 +56,36 @@ Analyze the <manifesto_text> (which is in Markdown format from a political manif
     <short_name>{previous_guess.short_name}</short_name>
     <is_confident>{previous_guess.is_confident}</is_confident>
 </previous_guess>""",
-                    },
-                ],
-                response_format=PartyName,
-                temperature=0,
-                seed=42,
+                },
+            ],
+            response_format=PartyName,
+            temperature=0,
+            seed=42,
+        )
+        return completion.choices[0].message.parsed
+
+    def extract_party_names(
+        self, chunked_text: List[str], batch_size: int = 2
+    ) -> PartyName:
+        """
+        Extracts a political party name from a list of pre-chunked text.
+
+        Args:
+            chunked_text (List[str]): A list of text chunks.
+            batch_size (int): Number of chunks to process in each batch.
+
+        Returns:
+            PartyName: A PartyName object representing the extracted party name.
+        """
+        is_confident = False
+        idx = 0
+        previous_guess = PartyName(full_name="", short_name="", is_confident=False)
+
+        while not is_confident and idx < len(chunked_text):
+            current_chunks = chunked_text[idx : idx + batch_size]
+            party_name_guess = self._call_openai_party_name_completion(
+                current_chunks=current_chunks, previous_guess=previous_guess
             )
-            party_name_guess = completion.choices[0].message.parsed
             assert isinstance(party_name_guess, PartyName), (
                 "Output does not match the expected schema."
             )

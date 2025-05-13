@@ -1,10 +1,9 @@
 from typing import Any, Dict, List, Tuple
 import json
-import backoff
-from pydantic import ValidationError
 import requests  # type: ignore[import]
 
 from polids.config import settings
+from polids.utils.backoff import llm_backoff
 from polids.scientific_validation.base import (
     ScientificValidation,
     ScientificValidator,
@@ -113,12 +112,7 @@ def extract_valid_json(response: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("Failed to parse valid JSON from response content") from e
 
 
-@backoff.on_exception(
-    backoff.expo,
-    ValidationError,
-    max_tries=5,
-    max_time=60,
-)
+@llm_backoff
 def search_on_perplexity(
     policy: str,
     model_name: str,
