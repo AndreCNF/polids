@@ -95,9 +95,11 @@ class OpenAIScientificValidator(ScientificValidator):
             response_format=ScientificValidation,  # Specify the schema for the structured output
         )
         parsed = completion.choices[0].message.parsed
-        assert isinstance(parsed, ScientificValidation), (
-            f"Output does not match the expected schema. Got: {type(parsed)}"
-        )
+        if not isinstance(parsed, ScientificValidation):
+            raise ValueError(
+                f"Schema validation failed: Expected ScientificValidation, but got {type(parsed)}. "
+                f"Response content: {parsed}"
+            )
         citations = completion.choices[0].message.annotations
         if not citations:
             logger.warning(
