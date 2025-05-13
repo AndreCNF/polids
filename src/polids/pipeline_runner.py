@@ -5,10 +5,13 @@ from pathlib import Path
 from tqdm.auto import tqdm  # type: ignore[import]
 
 from polids.pdf_processing.openai import OpenAIPDFProcessor
+from polids.pdf_processing.marker import MarkerPDFProcessor
 from polids.text_chunking.openai import OpenAITextChunker
+from polids.text_chunking.markdown_chunker import MarkdownTextChunker
 from polids.party_name_extraction.openai import OpenAIPartyNameExtractor
 from polids.structured_analysis.openai import OpenAIStructuredChunkAnalyzer
 from polids.scientific_validation.perplexity import PerplexityScientificValidator
+from polids.scientific_validation.openai import OpenAIScientificValidator
 from polids.topic_unification.openai import OpenAITopicUnifier
 from polids.utils.pandas import convert_pydantic_to_dataframe, expand_dict_columns
 
@@ -23,12 +26,57 @@ def process_pdfs(input_folder: str) -> None:
     output_folder = os.path.join(input_folder, "output")
     os.makedirs(output_folder, exist_ok=True)
 
+    # Helper function: save DataFrame uniquely to CSV, avoiding duplicate rows
+    def save_unique(df: pd.DataFrame, path: Path) -> None:
+        """
+        Save DataFrame to CSV at path, reading existing CSV if present and
+        appending only new unique rows.
+        """
+        if path.exists():
+            try:
+                existing_df = pd.read_csv(path)
+                combined_df = pd.concat([existing_df, df], ignore_index=True)
+                combined_df.drop_duplicates(inplace=True)
+                combined_df.to_csv(path, index=False)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to read existing CSV {path}: {e}. Overwriting with new data."
+                )
+                df.to_csv(path, index=False)
+        else:
+            df.to_csv(path, index=False)
+
     # Prepare CSV file paths for iterative saving
     csv_party = Path(output_folder) / "party_names.csv"
     csv_analysis = Path(output_folder) / "chunk_analysis.csv"
     csv_validation = Path(output_folder) / "scientific_validations.csv"
     csv_mapping = Path(output_folder) / "topic_mapping.csv"
     csv_unified = Path(output_folder) / "unified_topics.csv"
+    csv_parsed_pages = Path(output_folder) / "parsed_pages.csv"
+    csv_chunks = Path(output_folder) / "chunks.csv"
+
+    # Load existing data to skip completed steps
+    def load_existing_csv(path: Path, columns: list[str]) -> pd.DataFrame:
+        if path.exists():
+            try:
+                return pd.read_csv(path)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to read existing CSV {path}: {e}. Starting fresh."
+                )
+        return pd.DataFrame(columns=columns)
+
+    pages_existing = load_existing_csv(
+        csv_parsed_pages, ["pdf_file", "page_index", "page_content"]
+    )
+    chunks_existing = load_existing_csv(
+        csv_chunks, ["pdf_file", "chunk_index", "chunk_content"]
+    )
+    party_existing = load_existing_csv(csv_party, ["pdf_file"])
+    analysis_existing = load_existing_csv(csv_analysis, ["pdf_file", "chunk_index"])
+    validation_existing = load_existing_csv(
+        csv_validation, ["pdf_file", "chunk_index", "proposal_index"]
+    )
 
     # Prepare accumulators for multiple tables
     party_records: list[dict[str, object]] = []
@@ -36,6 +84,8 @@ def process_pdfs(input_folder: str) -> None:
     validation_records: list[dict[str, object]] = []
     mapping_records: list[dict[str, str]] = []
     unified_topics_records: list[dict[str, str]] = []
+    pages_records: list[dict[str, object]] = []
+    chunks_records: list[dict[str, object]] = []
 
     # Iterate over PDF files with a progress bar
     for filename in tqdm(os.listdir(input_folder), desc="PDFs to process", unit="file"):
@@ -55,91 +105,166 @@ def process_pdfs(input_folder: str) -> None:
             validator = PerplexityScientificValidator()
 
             # Step 1: Parse PDF into markdown pages
-            logger.info(f"Step: PDF parsing for {filename}")
-            pages: list[str] = pdf_processor.process(pdf_path)
-            logger.info(f"Parsed {len(pages)} pages from {filename}")
+            if filename in pages_existing["pdf_file"].values:
+                logger.info(f"Parsed pages for {filename} exist, loading from CSV")
+                tmp = pages_existing[
+                    pages_existing["pdf_file"] == filename
+                ].sort_values("page_index")
+                pages = tmp["page_content"].tolist()
+            else:
+                logger.info(f"Step: PDF parsing for {filename}")
+                try:
+                    pages = pdf_processor.process(pdf_path)
+                except Exception as e:
+                    logger.warning(
+                        f"OpenAIPDFProcessor failed for {filename}: {e}. Falling back to MarkerPDFProcessor."
+                    )
+                    marker_processor = MarkerPDFProcessor()
+                    pages = marker_processor.process(pdf_path)
+                logger.info(f"Parsed {len(pages)} pages from {filename}")
+                # Save parsed pages to CSV
+                for page_index, page_content in enumerate(pages):
+                    pages_records.append(
+                        {
+                            "pdf_file": filename,
+                            "page_index": page_index,
+                            "page_content": page_content,
+                        }
+                    )
+                save_unique(pd.DataFrame(pages_records), csv_parsed_pages)
+                logger.info(f"Saved parsed pages to {csv_parsed_pages}")
 
             # Step 2: Chunk the text into semantic chunks
-            logger.info(f"Step: Text chunking for {filename}")
-            chunks: list[str] = text_chunker.process(pages)
-            logger.info(f"Generated {len(chunks)} semantic chunks for {filename}")
+            if filename in chunks_existing["pdf_file"].values:
+                logger.info(f"Chunks for {filename} exist, loading from CSV")
+                tmp = chunks_existing[
+                    chunks_existing["pdf_file"] == filename
+                ].sort_values("chunk_index")
+                chunks = tmp["chunk_content"].tolist()
+            else:
+                logger.info(f"Step: Text chunking for {filename}")
+                try:
+                    chunks = text_chunker.process(pages)
+                except Exception as e:
+                    logger.warning(
+                        f"OpenAITextChunker failed for {filename}: {e}. Falling back to MarkdownTextChunker."
+                    )
+                    markdown_chunker = MarkdownTextChunker()
+                    chunks = markdown_chunker.process(pages)
+                logger.info(f"Generated {len(chunks)} semantic chunks for {filename}")
+                # Save chunks to CSV
+                for chunk_index, chunk_content in enumerate(chunks):
+                    chunks_records.append(
+                        {
+                            "pdf_file": filename,
+                            "chunk_index": chunk_index,
+                            "chunk_content": chunk_content,
+                        }
+                    )
+                save_unique(pd.DataFrame(chunks_records), csv_chunks)
+                logger.info(f"Saved chunks to {csv_chunks}")
 
             # Step 3: Extract party name
-            logger.info(f"Step: Party name extraction for {filename}")
-            party_name = party_extractor.extract_party_names(chunks)
-            logger.info(
-                f"Extracted party name: {party_name.full_name} (confident={party_name.is_confident})"
-            )
-            party_records.append(
-                {
-                    "pdf_file": filename,
-                    "full_name": party_name.full_name,
-                    "short_name": party_name.short_name,
-                    "is_confident": party_name.is_confident,
-                }
-            )
-            # Iteratively save party names
-            pd.DataFrame(party_records).to_csv(csv_party, index=False)
-            logger.info(
-                f"Iteratively saved {len(party_records)} party name records to party_names.csv"
-            )
+            if filename in party_existing["pdf_file"].values:
+                logger.info(f"Party name for {filename} exists, skipping extraction")
+            else:
+                logger.info(f"Step: Party name extraction for {filename}")
+                party_name = party_extractor.extract_party_names(chunks)
+                logger.info(
+                    f"Extracted party name: {party_name.full_name} (confident={party_name.is_confident})"
+                )
+                party_records.append(
+                    {
+                        "pdf_file": filename,
+                        "full_name": party_name.full_name,
+                        "short_name": party_name.short_name,
+                        "is_confident": party_name.is_confident,
+                    }
+                )
+                # Iteratively save party names
+                save_unique(pd.DataFrame(party_records), csv_party)
+                logger.info(
+                    f"Iteratively saved {len(party_records)} party name records to party_names.csv"
+                )
 
             # Step 4: Analyze each chunk for structured analysis
-            logger.info(f"Step: Structured analysis of chunks for {filename}")
-            chunk_analysis_models = []
-            for idx, chunk in enumerate(
-                tqdm(chunks, desc="Analyzing chunks", unit="chunk", leave=False)
-            ):
-                analysis = analyzer.process(chunk)
-                chunk_analysis_models.append(analysis)
-            logger.info(
-                f"Completed structured analysis of {len(chunks)} chunks for {filename}"
-            )
-            df_analysis = convert_pydantic_to_dataframe(chunk_analysis_models)  # type: ignore
-            # Add metadata columns
-            df_analysis.insert(0, "pdf_file", filename)
-            df_analysis.insert(1, "chunk_index", range(len(chunks)))
-            analysis_dfs.append(df_analysis)
-            # Iteratively save chunk analysis
-            pd.concat(analysis_dfs, ignore_index=True).to_csv(csv_analysis, index=False)
-            logger.info(
-                f"Iteratively saved structured analysis for {len(analysis_dfs)} PDFs to chunk_analysis.csv"
-            )
+            if filename in analysis_existing["pdf_file"].values:
+                logger.info(f"Analysis for {filename} exists, loading from CSV")
+                df_analysis = analysis_existing[
+                    analysis_existing["pdf_file"] == filename
+                ]
+                analysis_dfs.append(df_analysis)
+            else:
+                logger.info(f"Step: Structured analysis of chunks for {filename}")
+                chunk_analysis_models = []
+                for idx, chunk in enumerate(
+                    tqdm(chunks, desc="Analyzing chunks", unit="chunk", leave=False)
+                ):
+                    analysis = analyzer.process(chunk)
+                    chunk_analysis_models.append(analysis)
+                logger.info(
+                    f"Completed structured analysis of {len(chunks)} chunks for {filename}"
+                )
+                df_analysis = convert_pydantic_to_dataframe(chunk_analysis_models)  # type: ignore
+                # Add metadata columns
+                df_analysis.insert(0, "pdf_file", filename)
+                df_analysis.insert(1, "chunk_index", range(len(chunks)))
+                analysis_dfs.append(df_analysis)
+                # Iteratively save chunk analysis
+                save_unique(pd.concat(analysis_dfs, ignore_index=True), csv_analysis)
+                logger.info(
+                    f"Iteratively saved structured analysis for {len(analysis_dfs)} PDFs to chunk_analysis.csv"
+                )
 
             # Step 5: Validate each policy proposal scientifically
-            logger.info(
-                f"Step: Scientific validation of policy proposals for {filename}"
-            )
-            for idx, model in enumerate(chunk_analysis_models):
-                if model.policy_proposals:
-                    for p_idx, proposal in enumerate(
-                        tqdm(
-                            model.policy_proposals,
-                            desc=f"Validating proposals in chunk {idx}",
-                            unit="proposal",
-                            leave=False,
-                        )
-                    ):
-                        validation, citations = validator.process(proposal)
-                        val_data = validation.model_dump()
-                        validation_records.append(
-                            {
-                                "pdf_file": filename,
-                                "chunk_index": idx,
-                                "proposal_index": p_idx,
-                                "proposal": proposal,
-                                **val_data,
-                                "citations": citations,
-                            }
-                        )
-            # Iteratively save scientific validations
-            if validation_records:
-                expand_dict_columns(pd.DataFrame(validation_records)).to_csv(
-                    csv_validation, index=False
-                )
+            if filename in validation_existing["pdf_file"].values:
                 logger.info(
-                    f"Iteratively saved {len(validation_records)} scientific validation records to scientific_validations.csv"
+                    f"Validation for {filename} exists, skipping scientific validation"
                 )
+            else:
+                logger.info(
+                    f"Step: Scientific validation of policy proposals for {filename}"
+                )
+                for idx, model in enumerate(chunk_analysis_models):
+                    if model.policy_proposals:
+                        for p_idx, proposal in enumerate(
+                            tqdm(
+                                model.policy_proposals,
+                                desc=f"Validating proposals in chunk {idx}",
+                                unit="proposal",
+                                leave=False,
+                            )
+                        ):
+                            try:
+                                validation, citations = validator.process(proposal)
+                            except Exception as e:
+                                logger.warning(
+                                    f"PerplexityScientificValidator failed for proposal {p_idx} in chunk {idx} of {filename}: {e}. Falling back to OpenAIScientificValidator."
+                                )
+                                openai_validator = OpenAIScientificValidator()
+                                validation, citations = openai_validator.process(
+                                    proposal
+                                )
+                            val_data = validation.model_dump()
+                            validation_records.append(
+                                {
+                                    "pdf_file": filename,
+                                    "chunk_index": idx,
+                                    "proposal_index": p_idx,
+                                    "proposal": proposal,
+                                    **val_data,
+                                    "citations": citations,
+                                }
+                            )
+                # Iteratively save scientific validations
+                if validation_records:
+                    save_unique(
+                        expand_dict_columns(pd.DataFrame(validation_records)),
+                        csv_validation,
+                    )
+                    logger.info(
+                        f"Iteratively saved {len(validation_records)} scientific validation records to scientific_validations.csv"
+                    )
 
         except Exception as e:
             logger.error(f"Error processing {filename}: {e}")
@@ -166,28 +291,35 @@ def process_pdfs(input_folder: str) -> None:
         topic_unifier.map_input_topic_to_unified_topic
     )
     # Save updated chunk analysis with unified topics
-    combined_analysis_df.to_csv(csv_analysis, index=False)
+    save_unique(combined_analysis_df, csv_analysis)
     logger.success("Saved chunk_analysis.csv with unified_topic column")
 
     # Save unified topics list
     unified_topics_records = [
         {"unified_topic": ut.name} for ut in unified_output.unified_topics
     ]
-    pd.DataFrame(unified_topics_records).to_csv(csv_unified, index=False)
+    save_unique(pd.DataFrame(unified_topics_records), csv_unified)
     logger.success("Saved unified_topics.csv")
 
     # Save topic mapping table
-    pd.DataFrame(mapping_records).to_csv(csv_mapping, index=False)
+    save_unique(pd.DataFrame(mapping_records), csv_mapping)
     logger.success("Saved topic_mapping.csv")
 
     # Save party and validation tables as before
     logger.info("Saving remaining outputs...")
     if party_records:
-        pd.DataFrame(party_records).to_csv(csv_party, index=False)
+        save_unique(pd.DataFrame(party_records), csv_party)
         logger.success("Saved party_names.csv")
     if validation_records:
-        pd.DataFrame(validation_records).to_csv(csv_validation, index=False)
+        save_unique(pd.DataFrame(validation_records), csv_validation)
         logger.success("Saved scientific_validations.csv")
+    # Save parsed pages and chunks tables
+    if pages_records:
+        save_unique(pd.DataFrame(pages_records), csv_parsed_pages)
+        logger.success("Saved parsed_pages.csv")
+    if chunks_records:
+        save_unique(pd.DataFrame(chunks_records), csv_chunks)
+        logger.success("Saved chunks.csv")
 
 
 if __name__ == "__main__":
