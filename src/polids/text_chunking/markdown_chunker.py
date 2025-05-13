@@ -1,0 +1,96 @@
+import re
+from loguru import logger
+from .base import TextChunker, SemanticChunksPerPage
+from ..utils.text_similarity import is_text_similar
+
+# Precompile regex patterns for efficiency
+_HEADING_REGEX = re.compile(r"(?m)(?=^#{1,6}\s)")
+
+
+class MarkdownTextChunker(TextChunker):
+    """
+    TextChunker implementation that splits text into semantic chunks based on Markdown syntax.
+    """
+
+    def get_chunks(self, text_per_page: list[str]) -> list[SemanticChunksPerPage]:
+        """
+        Splits each page's Markdown text into semantic chunks where each chunk starts with a Markdown heading.
+
+        Args:
+            text_per_page (list[str]): List of page texts in Markdown format.
+
+        Returns:
+            list[SemanticChunksPerPage]: List of semantic chunks per page with incomplete flags.
+        """
+        page_chunks: list[SemanticChunksPerPage] = []
+        for page_index, page_text in enumerate(text_per_page):
+            logger.info(
+                f"Splitting page {page_index + 1} into chunks based on Markdown headings."
+            )
+            # Split raw text at Markdown headings (H1-H6)
+            raw_chunks = _HEADING_REGEX.split(page_text)
+            cleaned_chunks = [chunk.strip() for chunk in raw_chunks if chunk.strip()]
+            # Determine if the last chunk continues on the next page via text similarity
+            if cleaned_chunks and page_index < len(text_per_page) - 1:
+                # Prepare the next page's first chunk
+                next_raw = _HEADING_REGEX.split(text_per_page[page_index + 1])
+                next_cleaned = [c.strip() for c in next_raw if c.strip()]
+                next_first = next_cleaned[0] if next_cleaned else ""
+                last_chunk = cleaned_chunks[-1]
+                last_chunk_incomplete = is_text_similar(last_chunk, next_first)
+                logger.debug(
+                    f"Page {page_index + 1}: last chunk similarity to next first chunk = {last_chunk_incomplete}"
+                )
+            else:
+                last_chunk_incomplete = False
+            logger.debug(
+                f"Page {page_index + 1}: found {len(cleaned_chunks)} chunks, "
+                f"last_chunk_incomplete={last_chunk_incomplete}"
+            )
+            page_chunks.append(
+                SemanticChunksPerPage(
+                    chunks=cleaned_chunks,
+                    last_chunk_incomplete=last_chunk_incomplete,
+                )
+            )
+        logger.success("Completed splitting all pages into semantic chunks.")
+        return page_chunks
+
+    def merge_chunks(self, chunks: list[SemanticChunksPerPage]) -> list[str]:
+        """
+        Merges incomplete chunks across pages to form a final list of semantic chunks.
+
+        Args:
+            chunks (list[SemanticChunksPerPage]): List of chunks per page.
+
+        Returns:
+            list[str]: List of merged semantic chunks.
+        """
+        merged: list[str] = []
+        pending: str = ""
+        for page_index, page_chunk in enumerate(chunks):
+            logger.info(
+                f"Merging chunks from page {page_index + 1}, "
+                f"pending carry-over exists: {bool(pending)}."
+            )
+            for idx, chunk in enumerate(page_chunk.chunks):
+                # Prepend any pending chunk from previous page to the first chunk
+                if idx == 0 and pending:
+                    logger.debug(
+                        "Prepending pending chunk from previous page to current first chunk."
+                    )
+                    chunk = pending + "\n\n" + chunk
+                    pending = ""
+                is_last_chunk = idx == len(page_chunk.chunks) - 1
+                if is_last_chunk and page_chunk.last_chunk_incomplete:
+                    logger.debug("Deferring last incomplete chunk to next page.")
+                    pending = chunk
+                else:
+                    merged.append(chunk)
+            logger.debug(f"Page {page_index + 1} processing complete.")
+        # Append any remaining pending chunk after all pages are processed
+        if pending:
+            logger.debug("Appending final pending chunk after merging all pages.")
+            merged.append(pending)
+        logger.success("Completed merging all semantic chunks across pages.")
+        return merged

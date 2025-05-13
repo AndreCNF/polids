@@ -86,7 +86,9 @@ Analyze the <current_page_text> (which is in Markdown format from a political ma
             )
             assert is_text_similar(
                 expected=current_page_text, actual="\n".join(chunks_output.chunks)
-            ), "Output chunks do not reconstruct the original text."
+            ), (
+                f"Output chunks do not reconstruct the original text. Expected:\n{current_page_text}\n\nActual:\n{'\n'.join(chunks_output.chunks)}"
+            )
             chunk_outputs.append(chunks_output)
         return chunk_outputs
 
