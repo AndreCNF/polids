@@ -6,6 +6,11 @@ from tqdm.auto import tqdm  # type: ignore[import]
 
 from polids.pdf_processing.openai import OpenAIPDFProcessor
 from polids.pdf_processing.marker import MarkerPDFProcessor
+from polids.structured_analysis.base import (
+    HateSpeechDetection,
+    ManifestoChunkAnalysis,
+    PoliticalCompass,
+)
 from polids.text_chunking.openai import OpenAITextChunker
 from polids.text_chunking.markdown_chunker import MarkdownTextChunker
 from polids.party_name_extraction.openai import OpenAIPartyNameExtractor
@@ -194,11 +199,42 @@ def process_pdfs(input_folder: str) -> None:
                     analysis_existing["pdf_file"] == filename
                 ]
                 analysis_dfs.append(df_analysis)
+                # Convert DataFrame rows to ManifestoChunkAnalysis models,
+                # which will be used for scientific validation
+                chunk_analysis_models = [
+                    ManifestoChunkAnalysis(
+                        policy_proposals=row.policy_proposals
+                        if isinstance(row.policy_proposals, list)
+                        else eval(row.policy_proposals),
+                        sentiment=row.sentiment,
+                        topic=row.topic,
+                        hate_speech=HateSpeechDetection(
+                            is_hate_speech=row.hate_speech_is_hate_speech,
+                            reason=row.hate_speech_reason
+                            if isinstance(row.hate_speech_reason, str)
+                            else "",
+                            targeted_groups=row.hate_speech_targeted_groups
+                            if isinstance(row.hate_speech_targeted_groups, list)
+                            else eval(row.hate_speech_targeted_groups),
+                        ),
+                        political_compass=PoliticalCompass(
+                            economic=row.political_compass_economic,
+                            social=row.political_compass_social,
+                        ),
+                    )
+                    for row in df_analysis.itertuples()
+                ]
             else:
                 logger.info(f"Step: Structured analysis of chunks for {filename}")
                 chunk_analysis_models = []
-                for idx, chunk in enumerate(
-                    tqdm(chunks, desc="Analyzing chunks", unit="chunk", leave=False)
+                for idx, chunk in tqdm(
+                    enumerate(
+                        tqdm(chunks, desc="Analyzing chunks", unit="chunk", leave=False)
+                    ),
+                    total=len(chunks),
+                    desc="Chunks to analyze",
+                    unit="chunk",
+                    leave=False,
                 ):
                     analysis = analyzer.process(chunk)
                     chunk_analysis_models.append(analysis)
@@ -225,7 +261,13 @@ def process_pdfs(input_folder: str) -> None:
                 logger.info(
                     f"Step: Scientific validation of policy proposals for {filename}"
                 )
-                for idx, model in enumerate(chunk_analysis_models):
+                for idx, model in tqdm(
+                    enumerate(chunk_analysis_models),
+                    total=len(chunk_analysis_models),
+                    desc="Validating proposals",
+                    unit="chunk",
+                    leave=False,
+                ):
                     if model.policy_proposals:
                         for p_idx, proposal in enumerate(
                             tqdm(
