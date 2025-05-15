@@ -13,11 +13,21 @@ else:
 
 
 class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
-    def __init__(self):
+    def __init__(
+        self,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ):
         """
         Initializes the OpenAIStructuredChunkAnalyzer with an OpenAI client.
+
+        Args:
+            temperature (float | None): Sampling temperature for chat completions.
+            seed (int | None): Random seed for reproducibility.
         """
         self.client = OpenAI(api_key=settings.openai_api_key)
+        self.temperature = temperature
+        self.seed = seed
 
     @llm_backoff
     def process(self, chunk_text: str) -> ManifestoChunkAnalysis:
@@ -30,6 +40,12 @@ class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
         Returns:
             ManifestoChunkAnalysis: A structured analysis of the manifesto chunk.
         """
+        # Prepare optional kwargs for temperature and seed
+        parse_kwargs: dict[str, float | int] = {}
+        if self.temperature is not None:
+            parse_kwargs["temperature"] = self.temperature
+        if self.seed is not None:
+            parse_kwargs["seed"] = self.seed
         completion = self.client.beta.chat.completions.parse(
             # Using the GPT 4.1 mini model that gets good enough output quality for cheap; setting a specific version for reproducibility
             model="gpt-4.1-mini-2025-04-14",
@@ -104,8 +120,7 @@ Analyze the Markdown formatted text, applying the process described above.
                 },
             ],
             response_format=ManifestoChunkAnalysis,  # Specify the schema for the structured output
-            temperature=0,  # Low temperature should lead to less hallucination
-            seed=42,  # Fix the seed for reproducibility
+            **parse_kwargs,
         )
 
         chunk_analysis = completion.choices[0].message.parsed

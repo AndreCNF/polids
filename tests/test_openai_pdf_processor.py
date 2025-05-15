@@ -7,7 +7,7 @@ from polids.pdf_processing.openai import OpenAIPDFProcessor  # type: ignore[impo
 def test_process_pdf():
     # Path to the test PDF file
     pdf_path = Path("tests/data/test_electoral_program.pdf")
-    processor = OpenAIPDFProcessor()
+    processor = OpenAIPDFProcessor(seed=42)
 
     # Process the PDF
     result = processor.process(pdf_path)

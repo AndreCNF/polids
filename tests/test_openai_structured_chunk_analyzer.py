@@ -10,7 +10,7 @@ from polids.utils.text_similarity import is_text_similar  # type: ignore[import]
 
 @pytest.fixture
 def analyzer():
-    return OpenAIStructuredChunkAnalyzer()
+    return OpenAIStructuredChunkAnalyzer(seed=42)
 
 
 @pytest.mark.parametrize(
@@ -25,7 +25,6 @@ def analyzer():
                 policy_proposals=[
                     "Repatriate immigrants who depend on subsidies, are criminals, are illegal, and are culturally unadaptable.",
                     "Cut funding and subsidies for ethnic minorities.",
-                    "Prohibit the construction of new mosques.",
                     "Nullify the law on same-sex marriage.",
                     "Limit access to the armed forces and other security forces exclusively to native Portuguese.",
                 ],

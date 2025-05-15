@@ -26,7 +26,7 @@ def chunks_by_party():
 
 
 def test_extract_party_names(chunks_by_party: Dict[str, List[str]]):
-    extractor = OpenAIPartyNameExtractor()
+    extractor = OpenAIPartyNameExtractor(seed=42)
     for original_party_name, chunks in chunks_by_party.items():
         result = extractor.extract_party_names(chunks, batch_size=2)
         assert result.is_confident, (
