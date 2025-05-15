@@ -13,18 +13,33 @@ else:
 
 
 class OpenAIPartyNameExtractor(PartyNameExtractor):
-    def __init__(self):
+    def __init__(
+        self,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ):
         """
         Initializes the OpenAIPartyNameExtractor with an OpenAI client.
+
+        Args:
+            temperature (float | None): Sampling temperature for chat completions.
+            seed (int | None): Random seed for reproducibility.
         """
         self.client = OpenAI(api_key=settings.openai_api_key)
+        self.temperature = temperature
+        self.seed = seed
 
     @llm_backoff
     def _call_openai_party_name_completion(
         self, current_chunks: list[str], previous_guess: PartyName
     ) -> PartyName:
+        # Prepare optional kwargs for temperature and seed
+        parse_kwargs: dict[str, float | int] = {}
+        if self.temperature is not None:
+            parse_kwargs["temperature"] = self.temperature
+        if self.seed is not None:
+            parse_kwargs["seed"] = self.seed
         completion = self.client.beta.chat.completions.parse(
-            # Using the mini version for cheaper processing with good enough results; setting a specific version for reproducibility
             model="gpt-4.1-mini-2025-04-14",
             messages=[
                 {
@@ -59,8 +74,7 @@ Analyze the <manifesto_text> (which is in Markdown format from a political manif
                 },
             ],
             response_format=PartyName,
-            temperature=0,
-            seed=42,
+            **parse_kwargs,
         )
         return completion.choices[0].message.parsed
 

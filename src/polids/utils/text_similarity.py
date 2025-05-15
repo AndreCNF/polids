@@ -118,8 +118,8 @@ def compute_text_similarity_scores(
 def is_text_similar(
     expected: str,
     actual: str,
-    difflib_threshold: float = 0.9,
-    semantic_threshold: float = 0.8,
+    difflib_threshold: float = 0.8,
+    semantic_threshold: float = 0.9,
 ) -> bool:
     """
     Checks if two text strings are similar using multiple methods:

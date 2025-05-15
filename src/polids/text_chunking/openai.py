@@ -15,8 +15,14 @@ from polids.text_chunking.base import SemanticChunksPerPage, TextChunker
 
 
 class OpenAITextChunker(TextChunker):
-    def __init__(self):
+    def __init__(
+        self,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ):
         self.client = OpenAI(api_key=settings.openai_api_key)
+        self.temperature = temperature
+        self.seed = seed
 
     @llm_backoff
     def _call_openai_chunk_completion(
@@ -25,6 +31,12 @@ class OpenAITextChunker(TextChunker):
         """
         Calls the OpenAI chat completion API for a single page chunking, with backoff applied.
         """
+        # Prepare optional kwargs for temperature and seed
+        parse_kwargs: dict[str, float | int] = {}
+        if self.temperature is not None:
+            parse_kwargs["temperature"] = self.temperature
+        if self.seed is not None:
+            parse_kwargs["seed"] = self.seed
         completion = self.client.beta.chat.completions.parse(
             # Using the mini version for cheaper processing; setting a specific version for reproducibility
             model="gpt-4.1-mini-2025-04-14",
@@ -58,8 +70,7 @@ Analyze the <current_page_text> (which is in Markdown format from a political ma
                 },
             ],
             response_format=SemanticChunksPerPage,  # Specify the schema for the structured output
-            temperature=0,  # Low temperature should lead to less hallucination
-            seed=42,  # Fix the seed for reproducibility
+            **parse_kwargs,
         )
         return completion.choices[0].message.parsed
 

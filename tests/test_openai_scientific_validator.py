@@ -19,7 +19,7 @@ def validator():
     Initialize the OpenAIScientificValidator using OPENAI_API_KEY env var.
     """
     return OpenAIScientificValidator(
-        search_context_size="low"
+        search_context_size="low",
     )  # Set to "low" for faster tests
 
 

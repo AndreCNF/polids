@@ -123,7 +123,7 @@ def test_get_chunks(
     sample_markdown_pages: List[str],
     expected_chunks: List[SemanticChunksPerPage],
 ) -> None:
-    chunker = OpenAITextChunker()
+    chunker = OpenAITextChunker(seed=42)
     chunks = chunker.get_chunks(sample_markdown_pages)
 
     assert len(chunks) == len(expected_chunks), (

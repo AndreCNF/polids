@@ -5,7 +5,7 @@ from polids.topic_unification.base import UnifiedTopicsOutput  # type: ignore[im
 
 @pytest.fixture
 def topic_unifier() -> OpenAITopicUnifier:
-    return OpenAITopicUnifier()
+    return OpenAITopicUnifier(seed=42)
 
 
 @pytest.fixture
