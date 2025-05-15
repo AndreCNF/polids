@@ -160,8 +160,15 @@ def process_pdfs(input_folder: str) -> None:
                     logger.warning(
                         f"OpenAITextChunker failed for {filename}: {e}\n{traceback.format_exc()}. Falling back to MarkdownTextChunker."
                     )
-                    markdown_chunker = MarkdownTextChunker()
-                    chunks = markdown_chunker.process(pages)
+                    try:
+                        markdown_chunker = MarkdownTextChunker()
+                        chunks = markdown_chunker.process(pages, raw_chunks_only=False)
+                    except Exception as e:
+                        logger.warning(
+                            f"MarkdownTextChunker failed for {filename}: {e}\n{traceback.format_exc()}. Falling back to MarkdownTextChunker without merging similar chunks."
+                        )
+                        markdown_chunker = MarkdownTextChunker()
+                        chunks = markdown_chunker.process(pages, raw_chunks_only=True)
                 logger.info(f"Generated {len(chunks)} semantic chunks for {filename}")
                 # Save chunks to CSV
                 for chunk_index, chunk_content in enumerate(chunks):
