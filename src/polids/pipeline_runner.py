@@ -3,6 +3,7 @@ import pandas as pd  # type: ignore[import]
 from loguru import logger
 from pathlib import Path
 from tqdm.auto import tqdm  # type: ignore[import]
+import traceback
 
 from polids.pdf_processing.openai import OpenAIPDFProcessor
 from polids.pdf_processing.marker import MarkerPDFProcessor
@@ -50,7 +51,7 @@ def process_pdfs(input_folder: str) -> None:
                 combined_df.to_csv(path, index=False)
             except Exception as e:
                 logger.warning(
-                    f"Failed to read existing CSV {path}: {e}. Overwriting with new data."
+                    f"Failed to read existing CSV {path}: {e}\n{traceback.format_exc()}. Overwriting with new data."
                 )
                 df.to_csv(path, index=False)
         else:
@@ -72,7 +73,7 @@ def process_pdfs(input_folder: str) -> None:
                 return pd.read_csv(path)
             except Exception as e:
                 logger.warning(
-                    f"Failed to read existing CSV {path}: {e}. Starting fresh."
+                    f"Failed to read existing CSV {path}: {e}\n{traceback.format_exc()}. Starting fresh."
                 )
         return pd.DataFrame(columns=columns)
 
@@ -127,7 +128,7 @@ def process_pdfs(input_folder: str) -> None:
                     pages = pdf_processor.process(pdf_path)
                 except Exception as e:
                     logger.warning(
-                        f"OpenAIPDFProcessor failed for {filename}: {e}. Falling back to MarkerPDFProcessor."
+                        f"OpenAIPDFProcessor failed for {filename}: {e}\n{traceback.format_exc()}. Falling back to MarkerPDFProcessor."
                     )
                     marker_processor = MarkerPDFProcessor()
                     pages = marker_processor.process(pdf_path)
@@ -157,7 +158,7 @@ def process_pdfs(input_folder: str) -> None:
                     chunks = text_chunker.process(pages)
                 except Exception as e:
                     logger.warning(
-                        f"OpenAITextChunker failed for {filename}: {e}. Falling back to MarkdownTextChunker."
+                        f"OpenAITextChunker failed for {filename}: {e}\n{traceback.format_exc()}. Falling back to MarkdownTextChunker."
                     )
                     markdown_chunker = MarkdownTextChunker()
                     chunks = markdown_chunker.process(pages)
@@ -286,7 +287,7 @@ def process_pdfs(input_folder: str) -> None:
                                 validation, citations = validator.process(proposal)
                             except Exception as e:
                                 logger.warning(
-                                    f"PerplexityScientificValidator failed for proposal {p_idx} in chunk {idx} of {filename}: {e}. Falling back to OpenAIScientificValidator."
+                                    f"PerplexityScientificValidator failed for proposal {p_idx} in chunk {idx} of {filename}: {e}\n{traceback.format_exc()}. Falling back to OpenAIScientificValidator."
                                 )
                                 openai_validator = OpenAIScientificValidator()
                                 validation, citations = openai_validator.process(
@@ -314,7 +315,7 @@ def process_pdfs(input_folder: str) -> None:
                     )
 
         except Exception as e:
-            logger.error(f"Error processing {filename}: {e}")
+            logger.error(f"Error processing {filename}: {e}\n{traceback.format_exc()}")
 
     # Step 6: Topic unification across all PDFs
     logger.info("Step: Topic unification across all processed PDFs")
