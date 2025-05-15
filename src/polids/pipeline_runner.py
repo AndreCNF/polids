@@ -41,6 +41,11 @@ def process_pdfs(input_folder: str) -> None:
             try:
                 existing_df = pd.read_csv(path)
                 combined_df = pd.concat([existing_df, df], ignore_index=True)
+                # Convert list entries to tuples to avoid unhashable type errors
+                for column in combined_df.columns:
+                    combined_df[column] = combined_df[column].apply(
+                        lambda x: tuple(x) if isinstance(x, list) else x
+                    )
                 combined_df.drop_duplicates(inplace=True)
                 combined_df.to_csv(path, index=False)
             except Exception as e:
