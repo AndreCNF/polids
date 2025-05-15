@@ -27,8 +27,21 @@ class ParsedPDFText(BaseModel):
 
 
 class OpenAIPDFProcessor(PDFProcessor):
-    def __init__(self):
+    def __init__(
+        self,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ):
+        """
+        Initializes the OpenAIPDFProcessor with an OpenAI client.
+
+        Args:
+            temperature (float | None): Sampling temperature for chat completions.
+            seed (int | None): Random seed for reproducibility.
+        """
         self.client = OpenAI(api_key=settings.openai_api_key)
+        self.temperature = temperature
+        self.seed = seed
 
     def pdf_to_base64_images(
         self, pdf_path: Path, image_format: str = "PNG", dpi: int = 300
@@ -62,6 +75,12 @@ class OpenAIPDFProcessor(PDFProcessor):
         """
         Calls the OpenAI chat completion API for a single page image, with backoff applied.
         """
+        # Prepare optional kwargs for temperature and seed
+        parse_kwargs: dict[str, float | int] = {}
+        if self.temperature is not None:
+            parse_kwargs["temperature"] = self.temperature
+        if self.seed is not None:
+            parse_kwargs["seed"] = self.seed
         completion = self.client.beta.chat.completions.parse(
             model="gpt-4.1-mini-2025-04-14",
             messages=[
@@ -82,9 +101,8 @@ class OpenAIPDFProcessor(PDFProcessor):
                     ],
                 }
             ],
-            response_format=ParsedPDFText,  # Specify the schema for the structured output
-            temperature=0,  # Low temperature should lead to less hallucination
-            seed=42,  # Fix the seed for reproducibility
+            response_format=ParsedPDFText,
+            **parse_kwargs,
         )
         if completion.choices[0].message.parsed:
             return completion.choices[0].message.parsed.text.strip()

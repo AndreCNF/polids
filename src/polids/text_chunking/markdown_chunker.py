@@ -12,12 +12,17 @@ class MarkdownTextChunker(TextChunker):
     TextChunker implementation that splits text into semantic chunks based on Markdown syntax.
     """
 
-    def get_chunks(self, text_per_page: list[str]) -> list[SemanticChunksPerPage]:
+    def get_chunks(
+        self,
+        text_per_page: list[str],
+        skip_similarity: bool = False,
+    ) -> list[SemanticChunksPerPage]:
         """
         Splits each page's Markdown text into semantic chunks where each chunk starts with a Markdown heading.
 
         Args:
             text_per_page (list[str]): List of page texts in Markdown format.
+            skip_similarity (bool): If True, skip cross-page similarity checks.
 
         Returns:
             list[SemanticChunksPerPage]: List of semantic chunks per page with incomplete flags.
@@ -30,6 +35,15 @@ class MarkdownTextChunker(TextChunker):
             # Split raw text at Markdown headings (H1-H6)
             raw_chunks = _HEADING_REGEX.split(page_text)
             cleaned_chunks = [chunk.strip() for chunk in raw_chunks if chunk.strip()]
+            # If skipping similarity, add raw cleaned chunks only
+            if skip_similarity:
+                page_chunks.append(
+                    SemanticChunksPerPage(
+                        chunks=cleaned_chunks,
+                        last_chunk_incomplete=False,
+                    )
+                )
+                continue
             # Determine if the last chunk continues on the next page via text similarity
             if cleaned_chunks and page_index < len(text_per_page) - 1:
                 # Prepare the next page's first chunk
@@ -94,3 +108,30 @@ class MarkdownTextChunker(TextChunker):
             merged.append(pending)
         logger.success("Completed merging all semantic chunks across pages.")
         return merged
+
+    def process(
+        self,
+        text_per_page: list[str],
+        raw_chunks_only: bool = False,
+    ) -> list[str]:
+        """
+        Processes the input text to extract semantic chunks.
+
+        Args:
+            text_per_page (list[str]): The input text to split, listed by page.
+                Each page is a separate string in the list. The text is
+                expected to be in Markdown format.
+            raw_chunks_only (bool): If True, skip similarity checks and chunk merging,
+                returning raw per-page chunks only.
+
+        Returns:
+            list[str]: A list of semantic chunks.
+        """
+        # Get semantic chunks per page, optionally skipping similarity checks
+        page_chunks = self.get_chunks(text_per_page, skip_similarity=raw_chunks_only)
+        if raw_chunks_only:
+            # Flatten raw cleaned chunks per page without merging
+            return [chunk for page in page_chunks for chunk in page.chunks]
+        else:
+            # Merge incomplete chunks across pages
+            return self.merge_chunks(page_chunks)

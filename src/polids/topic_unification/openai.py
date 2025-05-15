@@ -102,12 +102,18 @@ class OpenAITopicUnifier(TopicUnifier):
     """
 
     def __init__(
-        self, llm_name: str = DEFAULT_LLM_NAME, system_prompt: str = SYSTEM_PROMPT
+        self,
+        llm_name: str = DEFAULT_LLM_NAME,
+        system_prompt: str = SYSTEM_PROMPT,
+        temperature: float | None = None,
+        seed: int | None = None,
     ):
         super().__init__()
         self.client = OpenAI(api_key=settings.openai_api_key)
         self.llm_name = llm_name
         self.system_prompt = system_prompt
+        self.temperature = temperature
+        self.seed = seed
 
     @llm_backoff
     def get_unified_topics(self, input_markdown: str) -> UnifiedTopicsOutput:
@@ -120,21 +126,20 @@ class OpenAITopicUnifier(TopicUnifier):
         Returns:
             UnifiedTopicsOutput: The unified topics output.
         """
+        # Prepare optional kwargs for temperature and seed
+        parse_kwargs: dict[str, float | int] = {}
+        if self.temperature is not None:
+            parse_kwargs["temperature"] = self.temperature
+        if self.seed is not None:
+            parse_kwargs["seed"] = self.seed
         completion = self.client.beta.chat.completions.parse(
             model=self.llm_name,
             messages=[
-                {
-                    "role": "system",
-                    "content": self.system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": input_markdown,
-                },
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": input_markdown},
             ],
-            response_format=UnifiedTopicsOutput,  # Specify the schema for the structured output
-            temperature=0,  # Low temperature should lead to less hallucination
-            seed=42,  # Fix the seed for reproducibility
+            response_format=UnifiedTopicsOutput,
+            **parse_kwargs,
         )
         topics_unification_results = completion.choices[0].message.parsed
         assert isinstance(topics_unification_results, UnifiedTopicsOutput), (

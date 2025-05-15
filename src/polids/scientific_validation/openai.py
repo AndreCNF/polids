@@ -19,7 +19,7 @@ SYSTEM_PROMPT = """**Objective:** Analyze the provided policy proposal to determ
 
 1.  **Evidence Assessment:**
     - Determine if the **balance of scientific evidence** supports or refutes the policy's likely effectiveness or impact. This directly informs the `is_policy_supported_by_scientific_evidence` field.
-    - Critically evaluate the **degree of consensus** among reliable scientific sources. Is there broad agreement, significant debate, or insufficient evidence? This directly informs the `is_scientific_consensus_present` field. Remember, `True` requires near-unanimous agreement among sources on the *validation outcome* (supported or not supported).
+    - Critically evaluate the **degree of consensus**
 
 2.  **Source Prioritization:**
     - **Highest Priority:** Peer-reviewed scientific studies (especially systematic reviews, meta-analyses, RCTs), reports from established scientific organizations and governmental research bodies.
@@ -53,6 +53,8 @@ class OpenAIScientificValidator(ScientificValidator):
         model_name: str = MODEL_NAME,
         system_prompt: str = SYSTEM_PROMPT,
         search_context_size: Literal["low", "medium", "high"] = "high",
+        temperature: float | None = None,
+        seed: int | None = None,
     ):
         """
         Initialize the OpenAIScientificValidator with OpenAI API parameters.
@@ -64,11 +66,15 @@ class OpenAIScientificValidator(ScientificValidator):
             search_context_size (Literal["low", "medium", "high"]): The size of the search context.
                 This determines the number of sources to consider in the validation process.
                 The default is "high", which means a more extensive search.
+            temperature (float | None): The temperature parameter for controlling randomness in responses.
+            seed (int | None): The seed parameter for random number generation, ensuring reproducibility.
         """
         self.client = openai.Client(api_key=openai_api_key)
         self.model_name = model_name
         self.system_prompt = system_prompt
         self.search_context_size = search_context_size
+        self.temperature = temperature
+        self.seed = seed
 
     @llm_backoff
     def process(
@@ -85,6 +91,10 @@ class OpenAIScientificValidator(ScientificValidator):
             ScientificValidation: A structured validation result containing the analysis of the policy proposal.
             list[Any]: A list of sources or evidence used in the validation process.
         """
+        # Prepare optional kwargs for temperature (seed not supported by search-preview model)
+        parse_kwargs: dict[str, float] = {}
+        if self.temperature is not None:
+            parse_kwargs["temperature"] = self.temperature
         completion = self.client.beta.chat.completions.parse(
             model=self.model_name,
             web_search_options={"search_context_size": self.search_context_size},
@@ -92,7 +102,8 @@ class OpenAIScientificValidator(ScientificValidator):
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": policy_proposal},
             ],
-            response_format=ScientificValidation,  # Specify the schema for the structured output
+            response_format=ScientificValidation,
+            **parse_kwargs,
         )
         parsed = completion.choices[0].message.parsed
         if not isinstance(parsed, ScientificValidation):

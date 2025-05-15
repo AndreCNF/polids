@@ -1,6 +1,8 @@
 import difflib
 import numpy as np
+import torch
 from sentence_transformers import SentenceTransformer
+from loguru import logger
 
 
 def remove_formatting_from_text(text: str) -> str:
@@ -31,12 +33,40 @@ def compute_semantic_similarity(text1: str, text2: str) -> float:
     Returns:
         float: Cosine similarity score between the two texts, between 0 and 1.
     """
-    # Lazy-load the model only when needed
-    model = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")  # type: ignore
+    # Lazy-load the model: prefer MPS → TPU → CUDA → CPU
+    device = "cpu"
+    if torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        try:
+            import importlib
 
-    # Generate embeddings for both texts
-    embedding1 = model.encode(text1, convert_to_numpy=True)
-    embedding2 = model.encode(text2, convert_to_numpy=True)
+            xm = importlib.import_module("torch_xla.core.xla_model")
+            device = str(xm.xla_device())
+        except ImportError:
+            if torch.cuda.is_available():
+                device = "cuda"
+    model = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2", device=device)  # type: ignore
+
+    # Generate embeddings for both texts, with fallback to CPU on MPS OOM
+    try:
+        embedding1 = model.encode(text1, convert_to_numpy=True)
+        embedding2 = model.encode(text2, convert_to_numpy=True)
+    except RuntimeError as e:
+        if torch.backends.mps.is_available() and "MPS backend out of memory" in str(e):
+            logger.warning(
+                "MPS out of memory encountered; falling back to CPU for encoding."
+            )
+            embedding1 = model.encode(text1, convert_to_numpy=True, device="cpu")
+            embedding2 = model.encode(text2, convert_to_numpy=True, device="cpu")
+        else:
+            raise
+
+    # Clear device cache to free up memory
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     # Calculate cosine similarity
     similarity = np.dot(embedding1, embedding2) / (
@@ -88,8 +118,8 @@ def compute_text_similarity_scores(
 def is_text_similar(
     expected: str,
     actual: str,
-    difflib_threshold: float = 0.9,
-    semantic_threshold: float = 0.8,
+    difflib_threshold: float = 0.8,
+    semantic_threshold: float = 0.9,
 ) -> bool:
     """
     Checks if two text strings are similar using multiple methods:
