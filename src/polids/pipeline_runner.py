@@ -88,6 +88,10 @@ def process_pdfs(input_folder: str) -> None:
     validation_existing = load_existing_csv(
         csv_validation, ["pdf_file", "chunk_index", "proposal_index"]
     )
+    mapping_existing = load_existing_csv(
+        csv_mapping, ["original_topic", "unified_topic"]
+    )
+    unified_existing = load_existing_csv(csv_unified, ["unified_topic"])
 
     # Prepare accumulators for multiple tables
     party_records: list[dict[str, object]] = []
@@ -323,40 +327,63 @@ def process_pdfs(input_folder: str) -> None:
             logger.error(f"Error processing {filename}: {e}\n{traceback.format_exc()}")
 
     # Step 6: Topic unification across all PDFs
-    logger.info("Step: Topic unification across all processed PDFs")
-    # Aggregate topic frequencies from all chunk analyses
-    combined_analysis_df = pd.concat(analysis_dfs, ignore_index=True)
-    topic_counts: dict[str, int] = (
-        combined_analysis_df["topic"].value_counts().to_dict()
-    )
-    # Run unifier on aggregated topics
-    topic_unifier = OpenAITopicUnifier()
-    unified_output = topic_unifier.process(topic_counts)
-    # Build mapping records
-    mapping_records = []
-    for unified in unified_output.unified_topics:
-        for original in unified.original_topics:
-            mapping_records.append(
-                {"original_topic": original, "unified_topic": unified.name}
-            )
-    # Add unified_topic column to chunk analysis DataFrame
-    combined_analysis_df["unified_topic"] = combined_analysis_df["topic"].apply(
-        topic_unifier.map_input_topic_to_unified_topic
-    )
-    # Save updated chunk analysis with unified topics
-    save_unique(combined_analysis_df, csv_analysis)
-    logger.success("Saved chunk_analysis.csv with unified_topic column")
+    if mapping_existing.empty or unified_existing.empty:
+        logger.info("Step: Topic unification across all processed PDFs")
+        # Aggregate topic frequencies from all chunk analyses
+        combined_analysis_df = pd.concat(analysis_dfs, ignore_index=True)
+        topic_counts: dict[str, int] = (
+            combined_analysis_df["topic"].value_counts().to_dict()
+        )
+        # Run unifier on aggregated topics
+        topic_unifier = OpenAITopicUnifier()
+        unified_output = topic_unifier.process(topic_counts)
+        # Build mapping records
+        mapping_records = []
+        for unified in unified_output.unified_topics:
+            for original in unified.original_topics:
+                mapping_records.append(
+                    {"original_topic": original, "unified_topic": unified.name}
+                )
+        # Ensure topic column has no NaN or non-string values
+        combined_analysis_df["topic"] = combined_analysis_df["topic"].fillna("Other")
+        # Map each input topic to its unified topic
+        tqdm.pandas(desc="Mapping topics to unified topics")
+        combined_analysis_df["unified_topic"] = combined_analysis_df[
+            "topic"
+        ].progress_apply(topic_unifier.map_input_topic_to_unified_topic)
+        # Save updated chunk analysis with unified topics
+        save_unique(combined_analysis_df, csv_analysis)
+        logger.success("Saved chunk_analysis.csv with unified_topic column")
 
-    # Save unified topics list
-    unified_topics_records = [
-        {"unified_topic": ut.name} for ut in unified_output.unified_topics
-    ]
-    save_unique(pd.DataFrame(unified_topics_records), csv_unified)
-    logger.success("Saved unified_topics.csv")
+        # Save unified topics list
+        unified_topics_records = [
+            {"unified_topic": ut.name} for ut in unified_output.unified_topics
+        ]
+        save_unique(pd.DataFrame(unified_topics_records), csv_unified)
+        logger.success("Saved unified_topics.csv")
 
-    # Save topic mapping table
-    save_unique(pd.DataFrame(mapping_records), csv_mapping)
-    logger.success("Saved topic_mapping.csv")
+        # Save topic mapping table
+        save_unique(pd.DataFrame(mapping_records), csv_mapping)
+        logger.success("Saved topic_mapping.csv")
+    else:
+        logger.info(
+            "Applying existing topic mapping to chunk_analysis.csv using loaded mapping"
+        )
+        # Load existing analysis table and apply mapping
+        analysis_df = pd.read_csv(csv_analysis)
+        analysis_df["topic"] = analysis_df["topic"].fillna("Other")
+        # Build mapping dictionary from loaded CSV
+        mapping_dict = mapping_existing.set_index("original_topic")[
+            "unified_topic"
+        ].to_dict()
+        analysis_df["unified_topic"] = (
+            analysis_df["topic"].map(mapping_dict).fillna("Other")
+        )
+        # Save updated chunk analysis with unified topics, overwriting existing file
+        analysis_df.to_csv(csv_analysis, index=False)
+        logger.success(
+            "Updated chunk_analysis.csv with unified_topic column from existing mappings"
+        )
 
     # Save party and validation tables as before
     logger.info("Saving remaining outputs...")
