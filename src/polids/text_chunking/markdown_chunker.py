@@ -82,31 +82,23 @@ class MarkdownTextChunker(TextChunker):
         """
         merged: list[str] = []
         pending: str = ""
-        for page_index, page_chunk in enumerate(chunks):
-            logger.info(
-                f"Merging chunks from page {page_index + 1}, "
-                f"pending carry-over exists: {bool(pending)}."
-            )
+        for _, page_chunk in enumerate(chunks):
             for idx, chunk in enumerate(page_chunk.chunks):
                 # Prepend any pending chunk from previous page to the first chunk
                 if idx == 0 and pending:
-                    logger.debug(
-                        "Prepending pending chunk from previous page to current first chunk."
-                    )
                     chunk = pending + "\n\n" + chunk
                     pending = ""
                 is_last_chunk = idx == len(page_chunk.chunks) - 1
                 if is_last_chunk and page_chunk.last_chunk_incomplete:
-                    logger.debug("Deferring last incomplete chunk to next page.")
                     pending = chunk
                 else:
                     merged.append(chunk)
-            logger.debug(f"Page {page_index + 1} processing complete.")
         # Append any remaining pending chunk after all pages are processed
         if pending:
-            logger.debug("Appending final pending chunk after merging all pages.")
             merged.append(pending)
-        logger.success("Completed merging all semantic chunks across pages.")
+        logger.success(
+            f"Completed merging all semantic chunks across pages. Total: {len(merged)}"
+        )
         return merged
 
     def process(

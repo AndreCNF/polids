@@ -189,7 +189,7 @@ def process_pdfs(input_folder: str) -> None:
                 logger.info(f"Step: Party name extraction for {filename}")
                 party_name = party_extractor.extract_party_names(chunks)
                 logger.info(
-                    f"Extracted party name: {party_name.full_name} (confident={party_name.is_confident})"
+                    f"Extracted party name: {party_name.full_name} (short version: {party_name.short_name})"
                 )
                 party_records.append(
                     {
@@ -241,11 +241,9 @@ def process_pdfs(input_folder: str) -> None:
                 logger.info(f"Step: Structured analysis of chunks for {filename}")
                 chunk_analysis_models = []
                 for idx, chunk in tqdm(
-                    enumerate(
-                        tqdm(chunks, desc="Analyzing chunks", unit="chunk", leave=False)
-                    ),
+                    enumerate(chunks),
                     total=len(chunks),
-                    desc="Chunks to analyze",
+                    desc="Analyzing chunks",
                     unit="chunk",
                     leave=False,
                 ):
