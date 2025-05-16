@@ -46,14 +46,14 @@ def compute_semantic_similarity(text1: str, text2: str) -> float:
         except ImportError:
             if torch.cuda.is_available():
                 device = "cuda"
-    model = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2", device=device)  # type: ignore
+    model = SentenceTransformer("all-MiniLM-L12-v2", device=device)  # type: ignore
 
     # Generate embeddings for both texts, with fallback to CPU on MPS OOM
     try:
         embedding1 = model.encode(text1, convert_to_numpy=True)
         embedding2 = model.encode(text2, convert_to_numpy=True)
     except RuntimeError as e:
-        if torch.backends.mps.is_available() and "MPS backend out of memory" in str(e):
+        if torch.backends.mps.is_available() and "memory" in str(e).lower():
             logger.warning(
                 "MPS out of memory encountered; falling back to CPU for encoding."
             )

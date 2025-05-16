@@ -72,7 +72,16 @@ Analyze the <current_page_text> (which is in Markdown format from a political ma
             response_format=SemanticChunksPerPage,  # Specify the schema for the structured output
             **parse_kwargs,
         )
-        return completion.choices[0].message.parsed
+        chunks_output = completion.choices[0].message.parsed
+        assert isinstance(chunks_output, SemanticChunksPerPage), (
+            "Output does not match the expected schema."
+        )
+        assert is_text_similar(
+            expected=current_page_text, actual="\n".join(chunks_output.chunks)
+        ), (
+            f"Output chunks do not reconstruct the original text. Expected:\n{current_page_text}\n\nActual:\n{'\n'.join(chunks_output.chunks)}"
+        )
+        return chunks_output
 
     def get_chunks(self, text_per_page: List[str]) -> List[SemanticChunksPerPage]:
         chunk_outputs: list[SemanticChunksPerPage] = []
@@ -91,14 +100,6 @@ Analyze the <current_page_text> (which is in Markdown format from a political ma
 
             chunks_output = self._call_openai_chunk_completion(
                 current_page_text=current_page_text, next_page_preview=next_page_preview
-            )
-            assert isinstance(chunks_output, SemanticChunksPerPage), (
-                "Output does not match the expected schema."
-            )
-            assert is_text_similar(
-                expected=current_page_text, actual="\n".join(chunks_output.chunks)
-            ), (
-                f"Output chunks do not reconstruct the original text. Expected:\n{current_page_text}\n\nActual:\n{'\n'.join(chunks_output.chunks)}"
             )
             chunk_outputs.append(chunks_output)
         return chunk_outputs

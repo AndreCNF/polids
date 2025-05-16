@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from pydantic import BaseModel, Field
+from loguru import logger
 
 from polids.utils.text_similarity import compute_text_similarity_scores
 
@@ -171,4 +172,10 @@ class TopicUnifier(ABC):
         Returns:
             str: The mapped unified topic.
         """
+        # Guard against non-string topics (e.g., None or NaN)
+        if not isinstance(input_topic, str):
+            logger.warning(
+                f"map_input_topic_to_unified_topic received non-string topic: {input_topic!r}"
+            )
+            return "Other"
         return map_topic(input_topic=input_topic, topic_mapping=self.topic_mapping)

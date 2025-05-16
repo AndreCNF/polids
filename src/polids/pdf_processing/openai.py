@@ -5,6 +5,7 @@ from pdf2image import convert_from_path
 from io import BytesIO
 from pydantic import BaseModel
 from loguru import logger  # type: ignore[import]
+from tqdm.auto import tqdm  # type: ignore[import]
 
 from polids.config import settings
 from polids.utils.backoff import llm_backoff
@@ -58,7 +59,9 @@ class OpenAIPDFProcessor(PDFProcessor):
         """
         images = convert_from_path(pdf_path, dpi=dpi)
         base64_images = []
-        for image in images:
+        for image in tqdm(
+            images, desc="Converting PDF pages to base64 images", leave=False
+        ):
             buffered = BytesIO()
             image.save(buffered, format=image_format)
             img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
@@ -124,7 +127,9 @@ class OpenAIPDFProcessor(PDFProcessor):
         base64_images = self.pdf_to_base64_images(pdf_path)
         markdown_pages = []
 
-        for i, image_base64 in enumerate(base64_images):
+        for i, image_base64 in enumerate(
+            tqdm(base64_images, desc="Parsing PDF pages", unit="page", leave=False)
+        ):
             if max_pages and i >= max_pages:
                 break
             try:
