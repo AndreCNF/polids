@@ -11,6 +11,7 @@ dependencies = [
     "google-genai>=1.7.0",
     "ipykernel>=6.29.5",
     "ipywidgets>=8.1.5",
+    "kaleido==0.2.1",
     "langfuse>=2.60.2",
     "lingua-language-detector>=2.1.0",
     "llama-cloud-services>=0.6.8",
