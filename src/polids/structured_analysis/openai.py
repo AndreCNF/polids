@@ -46,10 +46,9 @@ class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
             parse_kwargs["temperature"] = self.temperature
         if self.seed is not None:
             parse_kwargs["seed"] = self.seed
-        completion = self.client.beta.chat.completions.parse(
-            # Using the GPT 4.1 mini model that gets good enough output quality for cheap; setting a specific version for reproducibility
-            model="gpt-4.1-mini-2025-04-14",
-            messages=[
+        response = self.client.responses.parse(
+            model="gpt-5.2-2025-12-11",
+            input=[
                 {
                     "role": "system",
                     "content": "You are an expert political text analyst with deep knowledge of political ideologies, policy frameworks, and manifesto analysis. Your task is to analyze segments from political party electoral manifestos, focusing on precision, accuracy, and strict adherence to the provided schema.",
@@ -119,11 +118,11 @@ Analyze the Markdown formatted text, applying the process described above.
 ```""",
                 },
             ],
-            response_format=ManifestoChunkAnalysis,  # Specify the schema for the structured output
+            text_format=ManifestoChunkAnalysis,  # Specify the schema for the structured output
             **parse_kwargs,
         )
 
-        chunk_analysis = completion.choices[0].message.parsed
+        chunk_analysis = response.output_parsed
         assert isinstance(chunk_analysis, ManifestoChunkAnalysis), (
             "Output does not match the expected schema."
         )

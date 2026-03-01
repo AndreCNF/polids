@@ -39,9 +39,9 @@ class OpenAIPartyNameExtractor(PartyNameExtractor):
             parse_kwargs["temperature"] = self.temperature
         if self.seed is not None:
             parse_kwargs["seed"] = self.seed
-        completion = self.client.beta.chat.completions.parse(
-            model="gpt-4.1-mini-2025-04-14",
-            messages=[
+        response = self.client.responses.parse(
+            model="gpt-5-mini-2025-08-07",
+            input=[
                 {
                     "role": "system",
                     "content": "You are an AI assistant specialized in analyzing political manifestos to identify the name of the political party that authored the document. Your task is to extract the party's name from the provided <manifesto_text>, ensuring that the identification is confident and unambiguous. If the party name cannot be confidently identified, or if the text is vague, ambiguous, or mentions a party not affiliated with the manifesto, you must label the result as not confident (`is_confident = False`). Use the <previous_guess> to refer to the previous, non-confident guess of the party name as memory to refine your attempts.",
@@ -73,10 +73,10 @@ Analyze the <manifesto_text> (which is in Markdown format from a political manif
 </previous_guess>""",
                 },
             ],
-            response_format=PartyName,
+            text_format=PartyName,
             **parse_kwargs,
         )
-        return completion.choices[0].message.parsed
+        return response.output_parsed
 
     def extract_party_names(
         self, chunked_text: List[str], batch_size: int = 2
@@ -112,7 +112,6 @@ Analyze the <manifesto_text> (which is in Markdown format from a political manif
                 idx += batch_size
 
         logger.warning(
-            "No confident party name found in the provided text chunks. "
-            "Returning the last guess."
+            "No confident party name found in the provided text chunks. Returning the last guess."
         )
         return party_name_guess

@@ -37,10 +37,10 @@ class OpenAITextChunker(TextChunker):
             parse_kwargs["temperature"] = self.temperature
         if self.seed is not None:
             parse_kwargs["seed"] = self.seed
-        completion = self.client.beta.chat.completions.parse(
+        response = self.client.responses.parse(
             # Using the mini version for cheaper processing; setting a specific version for reproducibility
-            model="gpt-4.1-mini-2025-04-14",
-            messages=[
+            model="gpt-5-mini-2025-08-07",
+            input=[
                 {
                     "role": "system",
                     "content": "You are an AI assistant specialized in semantic text chunking for Markdown documents. Your task is to divide the provided <current_page_text> into a list of semantically coherent chunks, preserving all original Markdown formatting exactly.",
@@ -69,10 +69,10 @@ Analyze the <current_page_text> (which is in Markdown format from a political ma
 </next_page_preview>""",
                 },
             ],
-            response_format=SemanticChunksPerPage,  # Specify the schema for the structured output
+            text_format=SemanticChunksPerPage,  # Specify the schema for the structured output
             **parse_kwargs,
         )
-        chunks_output = completion.choices[0].message.parsed
+        chunks_output = response.output_parsed
         assert isinstance(chunks_output, SemanticChunksPerPage), (
             "Output does not match the expected schema."
         )

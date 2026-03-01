@@ -12,7 +12,7 @@ else:
     from openai import OpenAI
 
 
-DEFAULT_LLM_NAME = "gpt-4.1-2025-04-14"
+DEFAULT_LLM_NAME = "gpt-5.2-2025-12-11"
 SYSTEM_PROMPT = """# Role
 You are a political data analyst specialized in categorizing policy areas into standardized, concise supercategories for downstream analysis.
 
@@ -132,16 +132,16 @@ class OpenAITopicUnifier(TopicUnifier):
             parse_kwargs["temperature"] = self.temperature
         if self.seed is not None:
             parse_kwargs["seed"] = self.seed
-        completion = self.client.beta.chat.completions.parse(
+        response = self.client.responses.parse(
             model=self.llm_name,
-            messages=[
+            input=[
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": input_markdown},
             ],
-            response_format=UnifiedTopicsOutput,
+            text_format=UnifiedTopicsOutput,
             **parse_kwargs,
         )
-        topics_unification_results = completion.choices[0].message.parsed
+        topics_unification_results = response.output_parsed
         assert isinstance(topics_unification_results, UnifiedTopicsOutput), (
             "Output does not match the expected schema."
         )
