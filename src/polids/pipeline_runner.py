@@ -6,6 +6,7 @@ from tqdm.auto import tqdm  # type: ignore[import]
 import traceback
 
 from polids.pdf_processing.openai import OpenAIPDFProcessor
+from polids.pdf_processing.mistral import MistralPDFProcessor
 from polids.pdf_processing.marker import MarkerPDFProcessor
 from polids.structured_analysis.base import (
     HateSpeechDetection,
@@ -102,12 +103,42 @@ def process_pdfs(input_folder: str) -> None:
     pages_records: list[dict[str, object]] = []
     chunks_records: list[dict[str, object]] = []
 
-    # Iterate over PDF files with a progress bar
-    for filename in tqdm(os.listdir(input_folder), desc="PDFs to process", unit="file"):
-        if not filename.endswith(".pdf"):
-            logger.warning(f"Skipping non-PDF file: {filename}")
-            continue
+    # Precompute PDF file list once
+    pdf_filenames = [f for f in os.listdir(input_folder) if f.endswith(".pdf")]
 
+    # Batch-parse PDFs that still need page extraction
+    mistral_batch_pages: dict[str, list[str]] = {}
+    missing_pages_files = [
+        filename
+        for filename in pdf_filenames
+        if filename not in pages_existing["pdf_file"].values
+    ]
+    if missing_pages_files:
+        try:
+            logger.info(
+                f"Step: Mistral batch PDF parsing for {len(missing_pages_files)} file(s)"
+            )
+            mistral_processor = MistralPDFProcessor()
+            missing_paths = [
+                Path(input_folder) / filename for filename in missing_pages_files
+            ]
+            batch_results = mistral_processor.process_batch(missing_paths)
+            mistral_batch_pages = {
+                filename: pages
+                for filename, pages in zip(
+                    missing_pages_files, batch_results, strict=False
+                )
+            }
+            logger.info(
+                f"Mistral batch parsing completed for {len(mistral_batch_pages)} file(s)"
+            )
+        except Exception as e:
+            logger.warning(
+                f"Mistral batch PDF parsing failed: {e}\n{traceback.format_exc()}. Falling back to per-file parsers."
+            )
+
+    # Iterate over PDF files with a progress bar
+    for filename in tqdm(pdf_filenames, desc="PDFs to process", unit="file"):
         pdf_path = Path(input_folder) / filename
         logger.info(f"Processing PDF: {pdf_path}")
 
@@ -126,16 +157,26 @@ def process_pdfs(input_folder: str) -> None:
                     pages_existing["pdf_file"] == filename
                 ].sort_values("page_index")
                 pages = tmp["page_content"].tolist()
+            elif filename in mistral_batch_pages:
+                logger.info(f"Using Mistral batch parsed pages for {filename}")
+                pages = mistral_batch_pages[filename]
             else:
                 logger.info(f"Step: PDF parsing for {filename}")
                 try:
                     pages = pdf_processor.process(pdf_path)
                 except Exception as e:
                     logger.warning(
-                        f"OpenAIPDFProcessor failed for {filename}: {e}\n{traceback.format_exc()}. Falling back to MarkerPDFProcessor."
+                        f"OpenAIPDFProcessor failed for {filename}: {e}\n{traceback.format_exc()}. Falling back to MistralPDFProcessor."
                     )
-                    marker_processor = MarkerPDFProcessor()
-                    pages = marker_processor.process(pdf_path)
+                    try:
+                        mistral_processor = MistralPDFProcessor()
+                        pages = mistral_processor.process(pdf_path)
+                    except Exception as mistral_error:
+                        logger.warning(
+                            f"MistralPDFProcessor failed for {filename}: {mistral_error}\n{traceback.format_exc()}. Falling back to MarkerPDFProcessor."
+                        )
+                        marker_processor = MarkerPDFProcessor()
+                        pages = marker_processor.process(pdf_path)
                 logger.info(f"Parsed {len(pages)} pages from {filename}")
                 # Save parsed pages to CSV
                 for page_index, page_content in enumerate(pages):

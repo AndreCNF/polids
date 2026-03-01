@@ -1,5 +1,3 @@
-import pytest
-
 from polids.text_chunking.markdown_chunker import MarkdownTextChunker  # type: ignore[import]
 from polids.text_chunking.base import SemanticChunksPerPage  # type: ignore[import]
 from polids.utils.text_similarity import is_text_similar  # type: ignore[import]

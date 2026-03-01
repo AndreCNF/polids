@@ -41,9 +41,9 @@ class LangfuseConfig(BaseModel):
         description="Langfuse public key",
     )
     host: AnyUrl | None = Field(
-        default=os.getenv("LANGFUSE_HOST"),  # type: ignore[assignment]
+        default=os.getenv("LANGFUSE_HOST"),
         description="Langfuse host URL",
-    )
+    )  # ty:ignore[invalid-assignment]
     log_to_langfuse: bool = Field(
         default=True, description="Flag to enable or disable logging to Langfuse"
     )
@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     perplexity_api_key: str | None = Field(
         default=None, description="Perplexity API Key"
     )
+    mistral_api_key: str | None = Field(default=None, description="Mistral API key")
     langfuse: LangfuseConfig = LangfuseConfig()
 
 
