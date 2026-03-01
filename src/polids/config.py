@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
 from typing import Any
+
+from pydantic import AnyUrl, BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import AnyUrl, BaseModel, Field
 
 DATA_PATH = Path("data")
 if not DATA_PATH.exists():
@@ -77,7 +78,57 @@ class Settings(BaseSettings):
     google_api_key: str | None = Field(
         default=None, description="Google / Gemini API key"
     )
+    llm_analysis_max_workers: int = Field(
+        default=2,
+        ge=1,
+        validation_alias="POLIDS_ANALYSIS_MAX_WORKERS",
+        description="Maximum concurrent workers for structured chunk analysis.",
+    )
+    llm_validation_max_workers: int = Field(
+        default=2,
+        ge=1,
+        validation_alias="POLIDS_VALIDATION_MAX_WORKERS",
+        description="Maximum concurrent workers for proposal scientific validation.",
+    )
+    llm_rate_limit_max_retries: int = Field(
+        default=6,
+        ge=0,
+        validation_alias="POLIDS_RATE_LIMIT_MAX_RETRIES",
+        description="Maximum retries for rate-limited tasks.",
+    )
+    llm_rate_limit_base_sleep_seconds: float = Field(
+        default=2.0,
+        gt=0,
+        validation_alias="POLIDS_RATE_LIMIT_BASE_SLEEP_SECONDS",
+        description="Base sleep duration in seconds for rate-limit backoff.",
+    )
+    llm_rate_limit_max_sleep_seconds: float = Field(
+        default=60.0,
+        gt=0,
+        validation_alias="POLIDS_RATE_LIMIT_MAX_SLEEP_SECONDS",
+        description="Maximum sleep duration in seconds for rate-limit backoff.",
+    )
     langfuse: LangfuseConfig = LangfuseConfig()
+
+    @model_validator(mode="after")
+    def validate_rate_limit_settings(self) -> "Settings":
+        """
+        Validate dependent rate-limit settings.
+
+        Returns:
+            Settings: The validated settings instance.
+
+        Raises:
+            ValueError: If max sleep is lower than base sleep.
+        """
+        if (
+            self.llm_rate_limit_max_sleep_seconds
+            < self.llm_rate_limit_base_sleep_seconds
+        ):
+            raise ValueError(
+                "llm_rate_limit_max_sleep_seconds must be greater than or equal to llm_rate_limit_base_sleep_seconds."
+            )
+        return self
 
 
 settings = Settings()
