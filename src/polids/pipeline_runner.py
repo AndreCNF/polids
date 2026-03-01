@@ -1,5 +1,4 @@
 import ast
-import os
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -15,8 +14,7 @@ from polids.party_name_extraction.openai import OpenAIPartyNameExtractor
 from polids.pdf_processing.marker import MarkerPDFProcessor
 from polids.pdf_processing.mistral import MistralPDFProcessor
 from polids.pdf_processing.openai import OpenAIPDFProcessor
-from polids.scientific_validation.openai import OpenAIScientificValidator
-from polids.scientific_validation.perplexity import PerplexityScientificValidator
+from polids.scientific_validation.gemini import GeminiScientificValidator
 from polids.structured_analysis.base import (
     HateSpeechDetection,
     ManifestoChunkAnalysis,
@@ -81,7 +79,26 @@ def process_pdfs(input_folder: str) -> None:
     Args:
         input_folder (str): Path to the folder containing PDF files.
     """
-    output_folder = Path(input_folder) / "output"
+    normalized_input_folder = (
+        input_folder.split("=", 1)[1]
+        if input_folder.startswith("input_folder=")
+        else input_folder
+    )
+    if normalized_input_folder != input_folder:
+        logger.warning(
+            f"Received input in 'input_folder=...' format. Using parsed path: {normalized_input_folder}"
+        )
+
+    input_path = Path(normalized_input_folder).expanduser()
+    if not input_path.exists():
+        raise FileNotFoundError(
+            f"Input folder does not exist: {input_path}. "
+            "Use a valid directory path, for example: data/elections_amsterdam/2026"
+        )
+    if not input_path.is_dir():
+        raise NotADirectoryError(f"Input path is not a directory: {input_path}")
+
+    output_folder = input_path / "output"
     output_folder.mkdir(parents=True, exist_ok=True)
 
     def is_rate_limit_error(exc: Exception) -> bool:
@@ -476,20 +493,26 @@ def process_pdfs(input_folder: str) -> None:
     analysis_columns = analysis_existing.columns.tolist()
     validation_columns = validation_existing.columns.tolist()
 
-    pdf_processor = OpenAIPDFProcessor()
+    pdf_processor = MistralPDFProcessor()
+    openai_pdf_processor = OpenAIPDFProcessor()
     text_chunker = OpenAITextChunker()
     party_extractor = OpenAIPartyNameExtractor()
     analyzer = OpenAIStructuredChunkAnalyzer()
-    validator = PerplexityScientificValidator()
-    openai_validator = OpenAIScientificValidator()
-    mistral_processor = MistralPDFProcessor()
+    validator = GeminiScientificValidator()
     marker_processor = MarkerPDFProcessor()
     markdown_chunker = MarkdownTextChunker()
 
     # Precompute PDF file list once
-    pdf_filenames = sorted([f for f in os.listdir(input_folder) if f.endswith(".pdf")])
+    pdf_filenames = sorted(
+        [
+            p.name
+            for p in input_path.iterdir()
+            if p.is_file() and p.suffix.lower() == ".pdf"
+        ]
+    )
     if not pdf_filenames:
-        logger.warning(f"No PDF files found in {input_folder}")
+        logger.warning(f"No PDF files found in input_folder={input_path}")
+        return
 
     # Batch-parse PDFs that still need page extraction
     mistral_batch_pages: dict[str, list[str]] = {}
@@ -501,10 +524,8 @@ def process_pdfs(input_folder: str) -> None:
             logger.info(
                 f"Step: Mistral batch PDF parsing for {len(missing_pages_files)} file(s)"
             )
-            missing_paths = [
-                Path(input_folder) / filename for filename in missing_pages_files
-            ]
-            batch_results = mistral_processor.process_batch(missing_paths)
+            missing_paths = [input_path / filename for filename in missing_pages_files]
+            batch_results = pdf_processor.process_batch(missing_paths)
             mistral_batch_pages = {
                 filename: pages
                 for filename, pages in zip(
@@ -521,7 +542,7 @@ def process_pdfs(input_folder: str) -> None:
 
     # Iterate over PDF files with a progress bar
     for filename in tqdm(pdf_filenames, desc="PDFs to process", unit="file"):
-        pdf_path = Path(input_folder) / filename
+        pdf_path = input_path / filename
         logger.info(f"Processing PDF: {pdf_path}")
 
         try:
@@ -556,10 +577,10 @@ def process_pdfs(input_folder: str) -> None:
                     pages = pdf_processor.process(pdf_path)
                 except Exception as e:
                     logger.warning(
-                        f"OpenAIPDFProcessor failed for {filename}: {e}\n{traceback.format_exc()}. Falling back to MistralPDFProcessor."
+                        f"MistralPDFProcessor failed for {filename}: {e}\n{traceback.format_exc()}. Falling back to OpenAIPDFProcessor."
                     )
                     try:
-                        pages = mistral_processor.process(pdf_path)
+                        pages = openai_pdf_processor.process(pdf_path)
                     except Exception as mistral_error:
                         logger.warning(
                             f"MistralPDFProcessor failed for {filename}: {mistral_error}\n{traceback.format_exc()}. Falling back to MarkerPDFProcessor."
@@ -744,16 +765,8 @@ def process_pdfs(input_folder: str) -> None:
                 def validate_proposal(
                     payload: tuple[int, int, str],
                 ) -> tuple[Any, list[Any]]:
-                    chunk_index, proposal_index, proposal = payload
-                    try:
-                        return validator.process(proposal)
-                    except Exception as exc:
-                        if is_rate_limit_error(exc):
-                            raise
-                        logger.warning(
-                            f"PerplexityScientificValidator failed for proposal {proposal_index} in chunk {chunk_index} of {filename}: {exc}\n{traceback.format_exc()}. Falling back to OpenAIScientificValidator."
-                        )
-                        return openai_validator.process(proposal)
+                    _chunk_index, _proposal_index, proposal = payload
+                    return validator.process(proposal)
 
                 validation_results = run_rate_limited_tasks(
                     tasks=proposal_tasks,

@@ -78,7 +78,11 @@ def test_process_batch_returns_results_in_input_order(monkeypatch):
 
     pdf_paths = [Path("first.pdf"), Path("second.pdf")]
 
-    monkeypatch.setattr(processor, "_encode_pdf", lambda path: f"encoded-{path.stem}")
+    monkeypatch.setattr(
+        processor,
+        "_upload_pdf_files_for_batch",
+        lambda _paths: ["file_1", "file_2"],
+    )
     monkeypatch.setattr(
         processor,
         "_create_batch_job",

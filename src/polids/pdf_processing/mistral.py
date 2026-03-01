@@ -15,7 +15,7 @@ from polids.utils.backoff import llm_backoff
 
 class MistralPDFProcessor(PDFProcessor):
     _TABLE_REF_PATTERN = re.compile(r"\[(tbl-[^\]]+)\]\(\1\)")
-    _IMAGE_REF_PATTERN = re.compile(r"\!\[(img-[^\]]+)\]\(\1\)")
+    _IMAGE_REF_PATTERN = re.compile(r"!?\[(img-[^\]]+)\]\(\1\)")
 
     def __init__(self, model: str = "mistral-ocr-latest"):
         """
@@ -73,7 +73,7 @@ class MistralPDFProcessor(PDFProcessor):
         self,
         pdf_paths: Sequence[Path],
         poll_interval_seconds: float = 2.0,
-        timeout_seconds: int = 1800,
+        timeout_seconds: int = 4 * 60 * 60,
     ) -> List[List[str]]:
         """
         Processes multiple PDFs using Mistral Batch OCR and returns results in
@@ -90,17 +90,16 @@ class MistralPDFProcessor(PDFProcessor):
         if not pdf_paths:
             return []
 
+        uploaded_pdf_file_ids = self._upload_pdf_files_for_batch(pdf_paths)
         batch_requests = []
-        for index, pdf_path in enumerate(pdf_paths):
-            base64_pdf = self._encode_pdf(pdf_path)
+        for index, file_id in enumerate(uploaded_pdf_file_ids):
             batch_requests.append(
                 {
                     "custom_id": str(index),
                     "body": {
-                        "model": self.model,
                         "document": {
-                            "type": "document_url",
-                            "document_url": f"data:application/pdf;base64,{base64_pdf}",
+                            "type": "file",
+                            "file_id": file_id,
                         },
                         "include_image_base64": False,
                         "table_format": "markdown",
@@ -118,9 +117,25 @@ class MistralPDFProcessor(PDFProcessor):
         results_by_index = self._parse_batch_outputs(outputs, pdf_paths)
         return [results_by_index[index] for index in range(len(pdf_paths))]
 
+    def _upload_pdf_files_for_batch(self, pdf_paths: Sequence[Path]) -> list[str]:
+        file_ids: list[str] = []
+        for pdf_path in pdf_paths:
+            with open(pdf_path, "rb") as pdf_file:
+                uploaded = self.client.files.upload(
+                    file={
+                        "file_name": pdf_path.name,
+                        "content": pdf_file,
+                        "content_type": "application/pdf",
+                    },
+                    purpose="ocr",
+                )
+            file_ids.append(uploaded.id)
+        return file_ids
+
     def _create_batch_job(self, batch_requests: list[dict[str, Any]]) -> Any:
         return self.client.batch.jobs.create(
             endpoint="/v1/ocr",
+            model=self.model,
             requests=batch_requests,
         )
 
