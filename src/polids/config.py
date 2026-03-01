@@ -74,6 +74,9 @@ class Settings(BaseSettings):
         default=None, description="Perplexity API Key"
     )
     mistral_api_key: str | None = Field(default=None, description="Mistral API key")
+    google_api_key: str | None = Field(
+        default=None, description="Google / Gemini API key"
+    )
     langfuse: LangfuseConfig = LangfuseConfig()
 
 
