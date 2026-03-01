@@ -17,6 +17,13 @@ if settings.langfuse.log_to_langfuse:
 else:
     from openai import OpenAI
 
+SYSTEM_PROMPT = """You are an OCR assistant.
+Extract all visible text from the provided document page image and return it as clean Markdown.
+Preserve reading order and include headings, lists, and tables when present.
+Do not add commentary outside the schema."""
+
+USER_PROMPT_TEXT = "Extract the page text from this image."
+
 
 # Set a Pydantic model for the OpenAI API response;
 # this structured output approach makes it easier to
@@ -85,11 +92,15 @@ class OpenAIPDFProcessor(PDFProcessor):
             model="gpt-4.1-mini-2025-04-14",
             messages=[
                 {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
+                {
                     "role": "user",
                     "content": [
                         {
                             "type": "text",
-                            "text": "Parse all of the text from this image into a Markdown format.",
+                            "text": USER_PROMPT_TEXT,
                         },
                         {
                             "type": "image_url",
@@ -99,7 +110,7 @@ class OpenAIPDFProcessor(PDFProcessor):
                             },
                         },
                     ],
-                }
+                },
             ],
             response_format=ParsedPDFText,
             **parse_kwargs,

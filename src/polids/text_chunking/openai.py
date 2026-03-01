@@ -13,6 +13,33 @@ from polids.utils import is_text_similar
 from polids.utils.backoff import llm_backoff
 from polids.text_chunking.base import SemanticChunksPerPage, TextChunker
 
+SYSTEM_PROMPT = """# Role
+You are a semantic chunking specialist for political manifesto text in Markdown.
+
+# Objective
+Split each page into semantically coherent chunks for downstream NLP analysis. Each chunk should ideally represent a distinct policy proposal, argument, thematic topic, or logical section typical of such documents. Perform this task objectively based on text structure and topic shifts, regardless of the political viewpoint expressed.
+
+# Instructions
+1. Carefully Analyze: First, read and fully understand the entire <current_page_text> and the <next_page_preview> to grasp the context, policy flow, and document structure.
+2. Identify Semantic Breaks: Determine logical breakpoints in the <current_page_text> based on shifts intopic, introduction of new policy proposals, distinct arguments, or transitions between manifesto sections.
+3. Use Markdown & Document Cues: Treat Markdown elements (headings `#`, `##`; lists `*`, `-`, `1.`; paragraphs separated by blank lines; thematic breaks `---`) and common manifesto structures (e.g., explicitly numbered proposals, thematic chapters/sections) as strong indicators for potential chunk boundaries, but always prioritize the semantic flow of policy ideas or arguments. A single chunk can span multiple paragraphs or elements if they detail the *same* core proposal or argument.
+4. Check Final Chunk: Evaluate if the last identified semantic unit (e.g., the end of a policy description) in <current_page_text> stops mid-thought and its specific topic clearly continues at the start of <next_page_preview>.
+4. Use the next-page preview only to decide whether the final chunk on the current page is incomplete.
+5. Preserve the original language and text exactly.
+
+# Critical Constraints
+- Do not alter text content or Markdown syntax.
+- Preserve all characters and whitespace exactly.
+- The concatenation of `chunks` must reconstruct the original current page text.
+"""
+
+USER_PROMPT_TEMPLATE = """<current_page_text>
+{current_page_text}
+</current_page_text>
+<next_page_preview>
+{next_page_preview}
+</next_page_preview>"""
+
 
 class OpenAITextChunker(TextChunker):
     def __init__(
@@ -43,30 +70,14 @@ class OpenAITextChunker(TextChunker):
             input=[
                 {
                     "role": "system",
-                    "content": "You are an AI assistant specialized in semantic text chunking for Markdown documents. Your task is to divide the provided <current_page_text> into a list of semantically coherent chunks, preserving all original Markdown formatting exactly.",
+                    "content": SYSTEM_PROMPT,
                 },
                 {
                     "role": "user",
-                    "content": f"""**Overall Goal:**
-Analyze the <current_page_text> (which is in Markdown format from a political manifesto) and split it into semantically coherent chunks. **Each chunk should ideally represent a distinct policy proposal, argument, thematic topic, or logical section typical of such documents.** This chunking is intended to facilitate downstream NLP analysis for understanding policy positions and informing voters. Perform this task objectively based on text structure and topic shifts, regardless of the political viewpoint expressed. Use the <next_page_preview> **only** to determine if the very last chunk of the <current_page_text> is semantically incomplete because its specific topic or proposal clearly continues into the preview text.
-
-**Analysis Process:**
-1.  **Carefully Analyze:** First, read and fully understand the entire <current_page_text> and the <next_page_preview> to grasp the context, policy flow, and document structure.
-2.  **Identify Semantic Breaks:** Determine logical breakpoints in the <current_page_text> based on shifts in **topic, introduction of new policy proposals, distinct arguments, or transitions between manifesto sections.**
-3.  **Use Markdown & Document Cues:** Treat Markdown elements (headings `#`, `##`; lists `*`, `-`, `1.`; paragraphs separated by blank lines; thematic breaks `---`) **and common manifesto structures (e.g., explicitly numbered proposals, thematic chapters/sections)** as strong indicators for potential chunk boundaries, but always prioritize the semantic flow of policy ideas or arguments. A single chunk can span multiple paragraphs or elements if they detail the *same* core proposal or argument.
-4.  **Check Final Chunk:** Evaluate if the *last* identified semantic unit (e.g., the end of a policy description) in <current_page_text> stops mid-thought and its specific topic clearly continues at the start of <next_page_preview>.
-5.  **Format Output:** Construct the required structured output according to the provided schema.
-
-**Critical Constraints:**
-- **Exact Markdown Preservation:** You MUST NOT alter the <current_page_text>. Preserve ALL original Markdown syntax, whitespace (spaces, tabs, newlines), and characters exactly. The concatenation of the output `chunks` MUST perfectly reconstruct the original <current_page_text> string.
-- **Language Agnostic:** Perform semantic analysis regardless of the text's language, preserving the original language within the chunks.
-
-<current_page_text>
-{current_page_text}
-</current_page_text>
-<next_page_preview>
-{next_page_preview}
-</next_page_preview>""",
+                    "content": USER_PROMPT_TEMPLATE.format(
+                        current_page_text=current_page_text,
+                        next_page_preview=next_page_preview,
+                    ),
                 },
             ],
             text_format=SemanticChunksPerPage,  # Specify the schema for the structured output

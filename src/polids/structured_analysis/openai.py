@@ -11,51 +11,10 @@ if settings.langfuse.log_to_langfuse:
 else:
     from openai import OpenAI
 
+SYSTEM_PROMPT = """# Role
+You are an expert political analyst with deep knowledge of political ideologies, policy frameworks, and manifesto analysis.
 
-class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
-    def __init__(
-        self,
-        temperature: float | None = None,
-        seed: int | None = None,
-    ):
-        """
-        Initializes the OpenAIStructuredChunkAnalyzer with an OpenAI client.
-
-        Args:
-            temperature (float | None): Sampling temperature for chat completions.
-            seed (int | None): Random seed for reproducibility.
-        """
-        self.client = OpenAI(api_key=settings.openai_api_key)
-        self.temperature = temperature
-        self.seed = seed
-
-    @llm_backoff
-    def process(self, chunk_text: str) -> ManifestoChunkAnalysis:
-        """
-        Processes a chunk of text from a political manifesto to extract structured analysis.
-
-        Args:
-            chunk_text (str): The text of the manifesto chunk to analyze.
-
-        Returns:
-            ManifestoChunkAnalysis: A structured analysis of the manifesto chunk.
-        """
-        # Prepare optional kwargs for temperature and seed
-        parse_kwargs: dict[str, float | int] = {}
-        if self.temperature is not None:
-            parse_kwargs["temperature"] = self.temperature
-        if self.seed is not None:
-            parse_kwargs["seed"] = self.seed
-        response = self.client.responses.parse(
-            model="gpt-5.2-2025-12-11",
-            input=[
-                {
-                    "role": "system",
-                    "content": "You are an expert political text analyst with deep knowledge of political ideologies, policy frameworks, and manifesto analysis. Your task is to analyze segments from political party electoral manifestos, focusing on precision, accuracy, and strict adherence to the provided schema.",
-                },
-                {
-                    "role": "user",
-                    "content": f"""**Analysis process**:
+# Analysis Process
 1. Policy Proposals:
 - Carefully read the text to identify *concrete and specific* policy proposals.
 - A valid policy proposal MUST:
@@ -108,14 +67,57 @@ class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
   - +1.0: Strongly authoritarian (emphasizes order, discipline, social conformity, expanded state powers over individuals)
 - Use intermediate values for nuanced positions (e.g., -0.5 for moderately libertarian, +0.5 for moderately authoritarian).
 - Provide selections under field name: political_compass with subfields economic (float, -1 to 1) and social (float, -1 to 1).
+"""
 
-**Task**:
-Analyze the Markdown formatted text, applying the process described above.
-
-**Input text**:
-```markdown
+USER_PROMPT_TEMPLATE = """<manifesto_chunk_markdown>
 {chunk_text}
-```""",
+</manifesto_chunk_markdown>"""
+
+
+class OpenAIStructuredChunkAnalyzer(StructuredChunkAnalyzer):
+    def __init__(
+        self,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ):
+        """
+        Initializes the OpenAIStructuredChunkAnalyzer with an OpenAI client.
+
+        Args:
+            temperature (float | None): Sampling temperature for chat completions.
+            seed (int | None): Random seed for reproducibility.
+        """
+        self.client = OpenAI(api_key=settings.openai_api_key)
+        self.temperature = temperature
+        self.seed = seed
+
+    @llm_backoff
+    def process(self, chunk_text: str) -> ManifestoChunkAnalysis:
+        """
+        Processes a chunk of text from a political manifesto to extract structured analysis.
+
+        Args:
+            chunk_text (str): The text of the manifesto chunk to analyze.
+
+        Returns:
+            ManifestoChunkAnalysis: A structured analysis of the manifesto chunk.
+        """
+        # Prepare optional kwargs for temperature and seed
+        parse_kwargs: dict[str, float | int] = {}
+        if self.temperature is not None:
+            parse_kwargs["temperature"] = self.temperature
+        if self.seed is not None:
+            parse_kwargs["seed"] = self.seed
+        response = self.client.responses.parse(
+            model="gpt-5.2-2025-12-11",
+            input=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": USER_PROMPT_TEMPLATE.format(chunk_text=chunk_text),
                 },
             ],
             text_format=ManifestoChunkAnalysis,  # Specify the schema for the structured output

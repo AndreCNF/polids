@@ -11,6 +11,29 @@ if settings.langfuse.log_to_langfuse:
 else:
     from openai import OpenAI
 
+SYSTEM_PROMPT = """# Role
+You are a political-manifesto analyst specialized in identifying the authoring political party.
+
+# Objective
+Extract the party name from manifesto excerpts with high confidence.
+
+# Instructions
+1. Identify the party that authored the manifesto, not parties merely referenced in the text.
+2. Return `is_confident=false` when identification is ambiguous, weakly supported, or absent.
+3. Use `previous_guess` only as context to refine uncertain attempts.
+4. Preserve the original language and naming as written in the text.
+"""
+
+USER_PROMPT_TEMPLATE = """<manifesto_text>
+{manifesto_text}
+</manifesto_text>
+
+<previous_guess>
+<full_name>{full_name}</full_name>
+<short_name>{short_name}</short_name>
+<is_confident>{is_confident}</is_confident>
+</previous_guess>"""
+
 
 class OpenAIPartyNameExtractor(PartyNameExtractor):
     def __init__(
@@ -39,38 +62,22 @@ class OpenAIPartyNameExtractor(PartyNameExtractor):
             parse_kwargs["temperature"] = self.temperature
         if self.seed is not None:
             parse_kwargs["seed"] = self.seed
+        manifesto_text = "\n\n".join(current_chunks)
         response = self.client.responses.parse(
             model="gpt-5-mini-2025-08-07",
             input=[
                 {
                     "role": "system",
-                    "content": "You are an AI assistant specialized in analyzing political manifestos to identify the name of the political party that authored the document. Your task is to extract the party's name from the provided <manifesto_text>, ensuring that the identification is confident and unambiguous. If the party name cannot be confidently identified, or if the text is vague, ambiguous, or mentions a party not affiliated with the manifesto, you must label the result as not confident (`is_confident = False`). Use the <previous_guess> to refer to the previous, non-confident guess of the party name as memory to refine your attempts.",
+                    "content": SYSTEM_PROMPT,
                 },
                 {
                     "role": "user",
-                    "content": f"""**Overall Goal:**
-Analyze the <manifesto_text> (which is in Markdown format from a political manifesto) and identify the name of the political party that authored it. **The identification must be confident and unambiguous.** If the text is vague, ambiguous, or mentions a party not affiliated with the manifesto, label the result as not confident (`is_confident = False`). Use the <previous_guess> to refer to the previous, non-confident guess of the party name as memory to refine your identification attempts.
-
-**Analysis Process:**
-1. **Carefully Analyze:** Read and fully understand the <manifesto_text> to grasp the context and identify any explicit mentions of the party's name.
-2. **Check for Confidence:** Determine if the party's name is presented in a clear and unambiguous way. If the identification is not confident, label the result as `is_confident = False`.
-3. **Use Previous Guesses:** If a previous, non-confident guess of the party name exists, use the <previous_guess> as memory to refine your identification attempts.
-4. **Avoid False Positives:** Ensure that the identified name belongs to the party that authored the manifesto and not to another party mentioned in the text.
-5. **Format Output:** Construct the required structured output according to the provided schema.
-
-**Critical Constraints:**
-- **Exact Markdown Preservation:** You MUST NOT alter the <manifesto_text>. Write the party name as it appears in the text, without any modifications.
-- **Language Agnostic:** Preserve the original language as in the <manifesto_text> within the output.
-
-<manifesto_text>
-{current_chunks}
-</manifesto_text>
-
-<previous_guess>
-    <full_name>{previous_guess.full_name}</full_name>
-    <short_name>{previous_guess.short_name}</short_name>
-    <is_confident>{previous_guess.is_confident}</is_confident>
-</previous_guess>""",
+                    "content": USER_PROMPT_TEMPLATE.format(
+                        manifesto_text=manifesto_text,
+                        full_name=previous_guess.full_name,
+                        short_name=previous_guess.short_name,
+                        is_confident=previous_guess.is_confident,
+                    ),
                 },
             ],
             text_format=PartyName,
