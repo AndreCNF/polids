@@ -137,6 +137,87 @@ class GeminiScientificValidator(ScientificValidator):
         return urls
 
     @staticmethod
+    def _normalize_url(candidate: str) -> str | None:
+        """Normalize URL-like strings and discard invalid values."""
+        value = candidate.strip()
+        if not value:
+            return None
+        if value.startswith(("http://", "https://")):
+            return value
+        if value.startswith("www."):
+            return f"https://{value}"
+        return None
+
+    @staticmethod
+    def _extract_source_descriptors_from_object(obj: Any) -> list[str]:
+        """
+        Extract source descriptors (URL/title/domain) from nested tool payloads.
+        """
+        sources: list[str] = []
+        if obj is None:
+            return sources
+
+        if hasattr(obj, "model_dump"):
+            obj = obj.model_dump(mode="json")
+
+        if isinstance(obj, str):
+            return GeminiScientificValidator._extract_urls_from_text(obj)
+
+        if isinstance(obj, dict):
+            title: str | None = None
+            domain: str | None = None
+            url: str | None = None
+
+            for key, value in obj.items():
+                if not isinstance(value, str):
+                    continue
+                normalized = value.strip()
+                if not normalized:
+                    continue
+                lowered_key = key.lower()
+                if lowered_key in {"uri", "url", "source_uri", "retrieved_url", "link"}:
+                    normalized_url = GeminiScientificValidator._normalize_url(
+                        normalized
+                    )
+                    if normalized_url:
+                        url = normalized_url
+                elif lowered_key in {"title", "source_title", "name"} and title is None:
+                    title = normalized
+                elif (
+                    lowered_key in {"domain", "source_domain", "host"}
+                    and domain is None
+                ):
+                    domain = normalized
+
+            if url:
+                sources.append(url)
+            elif title and domain:
+                sources.append(f"{title} ({domain})")
+            elif title:
+                sources.append(title)
+            elif domain:
+                sources.append(domain)
+
+            for value in obj.values():
+                sources.extend(
+                    GeminiScientificValidator._extract_source_descriptors_from_object(
+                        value
+                    )
+                )
+            return sources
+
+        if isinstance(obj, list):
+            for item in obj:
+                sources.extend(
+                    GeminiScientificValidator._extract_source_descriptors_from_object(
+                        item
+                    )
+                )
+            return sources
+
+        return sources
+
+    @staticmethod
     def _extract_urls_from_object(obj: Any) -> list[str]:
         """
         Recursively extract URL-like strings from any nested object.
@@ -208,7 +289,11 @@ class GeminiScientificValidator(ScientificValidator):
                     "web_fetch",
                     "url_context",
                 }:
-                    add_urls(cls._extract_urls_from_object(getattr(part, "args", None)))
+                    add_urls(
+                        cls._extract_source_descriptors_from_object(
+                            getattr(part, "args", None)
+                        )
+                    )
                 elif part_kind == "builtin-tool-return" and tool_name in {
                     "web_search",
                     "web_fetch",
@@ -216,7 +301,9 @@ class GeminiScientificValidator(ScientificValidator):
                     "file_search",
                 }:
                     add_urls(
-                        cls._extract_urls_from_object(getattr(part, "content", None))
+                        cls._extract_source_descriptors_from_object(
+                            getattr(part, "content", None)
+                        )
                     )
                     add_urls(
                         cls._extract_urls_from_object(

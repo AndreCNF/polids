@@ -92,6 +92,35 @@ def test_extract_citations_from_unpaired_web_search_return():
     assert citations == ["https://example.org/unpaired"]
 
 
+def test_extract_citations_from_web_search_title_without_uri():
+    response = ModelResponse(
+        parts=[
+            BuiltinToolReturnPart(
+                tool_name="web_search",
+                tool_call_id="call-1",
+                content=[
+                    {"title": "OECD report on housing affordability", "uri": None},
+                    {"title": "CBS mobility dashboard", "domain": "cbs.nl"},
+                ],
+            ),
+        ]
+    )
+    result = _FakeRunResult(
+        output=ScientificValidation(
+            is_policy_supported_by_scientific_evidence=True,
+            is_scientific_consensus_present=False,
+            validation_reasoning="Reasoning.",
+        ),
+        response=response,
+    )
+
+    citations = GeminiScientificValidator._extract_citations_from_result(result)
+    assert citations == [
+        "OECD report on housing affordability",
+        "CBS mobility dashboard (cbs.nl)",
+    ]
+
+
 def test_extract_citations_from_web_fetch_return():
     response = ModelResponse(
         parts=[
