@@ -34,7 +34,18 @@ class _BatchJob:
 
 class _DownloadedFile:
     def __init__(self, text: str):
-        self.text = text
+        self._raw = text.encode("utf-8")
+        self._was_read = False
+
+    @property
+    def text(self):
+        if not self._was_read:
+            raise RuntimeError("Attempted to access streaming response content")
+        return self._raw.decode("utf-8")
+
+    def read(self):
+        self._was_read = True
+        return self._raw
 
 
 class _FilesAPI:

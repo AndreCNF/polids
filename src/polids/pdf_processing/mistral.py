@@ -182,8 +182,9 @@ class MistralPDFProcessor(PDFProcessor):
         output_file = getattr(batch_job, "output_file", None)
         if isinstance(output_file, str) and output_file:
             response = self.client.files.download(file_id=output_file)
+            response_text = self._read_httpx_response_text(response)
             return [
-                json.loads(line) for line in response.text.splitlines() if line.strip()
+                json.loads(line) for line in response_text.splitlines() if line.strip()
             ]
 
         outputs = getattr(batch_job, "outputs", None)
@@ -193,6 +194,24 @@ class MistralPDFProcessor(PDFProcessor):
         raise RuntimeError(
             f"Batch OCR job {getattr(batch_job, 'id', '<unknown>')} has no inline outputs and no output_file."
         )
+
+    def _read_httpx_response_text(self, response: Any) -> str:
+        """
+        Reads a potentially streaming HTTP response and returns decoded text.
+        """
+        read_method = getattr(response, "read", None)
+        if callable(read_method):
+            raw = read_method()
+            if isinstance(raw, bytes):
+                return raw.decode("utf-8")
+            if isinstance(raw, str):
+                return raw
+
+        text = getattr(response, "text", None)
+        if isinstance(text, str):
+            return text
+
+        raise RuntimeError("Unable to read downloaded batch output content.")
 
     def _parse_batch_outputs(
         self, outputs: Sequence[dict[str, Any]], pdf_paths: Sequence[Path]
