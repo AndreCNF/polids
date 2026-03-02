@@ -67,6 +67,59 @@ def test_extract_citations_from_result_with_web_search_urls():
     assert citations == ["https://example.org/a", "https://example.org/b"]
 
 
+def test_extract_citations_from_unpaired_web_search_return():
+    response = ModelResponse(
+        parts=[
+            BuiltinToolReturnPart(
+                tool_name="web_search",
+                tool_call_id="call-1",
+                content=[
+                    {"title": "Only return", "uri": "https://example.org/unpaired"}
+                ],
+            ),
+        ]
+    )
+    result = _FakeRunResult(
+        output=ScientificValidation(
+            is_policy_supported_by_scientific_evidence=True,
+            is_scientific_consensus_present=False,
+            validation_reasoning="Reasoning.",
+        ),
+        response=response,
+    )
+
+    citations = GeminiScientificValidator._extract_citations_from_result(result)
+    assert citations == ["https://example.org/unpaired"]
+
+
+def test_extract_citations_from_web_fetch_return():
+    response = ModelResponse(
+        parts=[
+            BuiltinToolCallPart(
+                tool_name="web_fetch",
+                tool_call_id="call-1",
+                args={"urls": ["https://example.org/call-arg"]},
+            ),
+            BuiltinToolReturnPart(
+                tool_name="web_fetch",
+                tool_call_id="call-1",
+                content=[{"retrieved_url": "https://example.org/fetched"}],
+            ),
+        ]
+    )
+    result = _FakeRunResult(
+        output=ScientificValidation(
+            is_policy_supported_by_scientific_evidence=True,
+            is_scientific_consensus_present=False,
+            validation_reasoning="Reasoning.",
+        ),
+        response=response,
+    )
+
+    citations = GeminiScientificValidator._extract_citations_from_result(result)
+    assert citations == ["https://example.org/call-arg", "https://example.org/fetched"]
+
+
 def test_process_returns_extracted_citations():
     response = ModelResponse(
         parts=[
@@ -93,6 +146,29 @@ def test_process_returns_extracted_citations():
     parsed, citations = validator.process("policy")
     assert parsed == expected
     assert citations == ["https://example.org/nested"]
+
+
+def test_process_falls_back_to_reasoning_urls():
+    response = ModelResponse(parts=[TextPart(content="No tool parts here.")])
+    expected = ScientificValidation(
+        is_policy_supported_by_scientific_evidence=True,
+        is_scientific_consensus_present=True,
+        validation_reasoning=(
+            "Summary based on sources: https://example.org/reasoning-1 and "
+            "https://example.org/reasoning-2."
+        ),
+    )
+    fake_result = _FakeRunResult(output=expected, response=response)
+
+    validator = GeminiScientificValidator.__new__(GeminiScientificValidator)
+    validator._agent = _FakeAgent(fake_result)
+
+    parsed, citations = validator.process("policy")
+    assert parsed == expected
+    assert citations == [
+        "https://example.org/reasoning-1",
+        "https://example.org/reasoning-2",
+    ]
 
 
 def test_process_does_not_apply_internal_retries():

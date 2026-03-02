@@ -3,6 +3,7 @@ Gemini-based scientific policy validation using PydanticAI with web search tools
 """
 
 import os
+import re
 from typing import Any, Literal
 
 from loguru import logger
@@ -115,9 +116,22 @@ class GeminiScientificValidator(ScientificValidator):
         )
 
     @staticmethod
+    def _extract_urls_from_text(text: str) -> list[str]:
+        """
+        Extract URL-like substrings from free text, normalizing trailing punctuation.
+        """
+        pattern = re.compile(r"https?://[^\s<>\]\)\"']+")
+        urls: list[str] = []
+        for match in pattern.findall(text):
+            normalized = match.rstrip(".,;:!?)]}>'\"")
+            if normalized.startswith(("http://", "https://")):
+                urls.append(normalized)
+        return urls
+
+    @staticmethod
     def _extract_urls_from_object(obj: Any) -> list[str]:
         """
-        Recursively extract URL-like strings from a nested object.
+        Recursively extract URL-like strings from any nested object.
         """
         urls: list[str] = []
         if obj is None:
@@ -127,25 +141,11 @@ class GeminiScientificValidator(ScientificValidator):
             obj = obj.model_dump(mode="json")
 
         if isinstance(obj, str):
-            if obj.startswith(("http://", "https://")):
-                return [obj]
-            return []
+            return GeminiScientificValidator._extract_urls_from_text(obj)
 
         if isinstance(obj, dict):
-            for key, value in obj.items():
-                if isinstance(value, str) and key in {
-                    "uri",
-                    "url",
-                    "source_uri",
-                    "sourceUrl",
-                    "link",
-                }:
-                    if value.startswith(("http://", "https://")):
-                        urls.append(value)
-                else:
-                    urls.extend(
-                        GeminiScientificValidator._extract_urls_from_object(value)
-                    )
+            for value in obj.values():
+                urls.extend(GeminiScientificValidator._extract_urls_from_object(value))
             return urls
 
         if isinstance(obj, list):
@@ -158,10 +158,16 @@ class GeminiScientificValidator(ScientificValidator):
     @classmethod
     def _extract_citations_from_result(cls, result: Any) -> list[str]:
         """
-        Extract citations from PydanticAI Gemini web-search builtin tool returns.
+        Extract citations from PydanticAI Gemini tool returns and related metadata.
         """
         citations: list[str] = []
         seen: set[str] = set()
+
+        def add_urls(urls: list[str]) -> None:
+            for url in urls:
+                if url not in seen:
+                    seen.add(url)
+                    citations.append(url)
 
         responses: list[Any] = []
         response = getattr(result, "response", None)
@@ -175,16 +181,54 @@ class GeminiScientificValidator(ScientificValidator):
                     responses.append(message)
 
         for response_msg in responses:
-            builtin_tool_calls = getattr(response_msg, "builtin_tool_calls", [])
-            for call_part, return_part in builtin_tool_calls:
-                if getattr(call_part, "tool_name", None) != "web_search":
-                    continue
-                for url in cls._extract_urls_from_object(
-                    getattr(return_part, "content", None)
-                ):
-                    if url not in seen:
-                        seen.add(url)
-                        citations.append(url)
+            add_urls(
+                cls._extract_urls_from_object(
+                    getattr(response_msg, "provider_details", None)
+                )
+            )
+            add_urls(
+                cls._extract_urls_from_object(getattr(response_msg, "metadata", None))
+            )
+
+            parts = getattr(response_msg, "parts", [])
+            for part in parts:
+                part_kind = getattr(part, "part_kind", None)
+                tool_name = getattr(part, "tool_name", None)
+
+                if part_kind == "builtin-tool-call" and tool_name in {
+                    "web_search",
+                    "web_fetch",
+                    "url_context",
+                }:
+                    add_urls(cls._extract_urls_from_object(getattr(part, "args", None)))
+                elif part_kind == "builtin-tool-return" and tool_name in {
+                    "web_search",
+                    "web_fetch",
+                    "url_context",
+                    "file_search",
+                }:
+                    add_urls(
+                        cls._extract_urls_from_object(getattr(part, "content", None))
+                    )
+                    add_urls(
+                        cls._extract_urls_from_object(
+                            getattr(part, "provider_details", None)
+                        )
+                    )
+                else:
+                    add_urls(
+                        cls._extract_urls_from_object(
+                            getattr(part, "provider_details", None)
+                        )
+                    )
+                    add_urls(
+                        cls._extract_urls_from_object(getattr(part, "content", None))
+                    )
+
+        output = getattr(result, "output", None)
+        reasoning = getattr(output, "validation_reasoning", None)
+        if isinstance(reasoning, str):
+            add_urls(cls._extract_urls_from_text(reasoning))
 
         return citations
 
@@ -213,8 +257,19 @@ class GeminiScientificValidator(ScientificValidator):
 
         citations = self._extract_citations_from_result(result)
         if not citations:
+            response = getattr(result, "response", None)
+            parts = getattr(response, "parts", []) if response is not None else []
+            tool_parts = [
+                getattr(part, "tool_name", None)
+                for part in parts
+                if getattr(part, "part_kind", None)
+                in {"builtin-tool-call", "builtin-tool-return"}
+            ]
             logger.warning(
-                f"No citations found in the Gemini response. Policy: {policy_proposal}"
+                "No citations found in the Gemini response. "
+                f"Policy: {policy_proposal}. "
+                f"Tool parts: {tool_parts}. "
+                f"Finish reason: {getattr(response, 'finish_reason', None)}"
             )
 
         return validation, citations

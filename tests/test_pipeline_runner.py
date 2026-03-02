@@ -134,28 +134,12 @@ def test_process_pdfs_persists_validation_failures_and_continues(monkeypatch, tm
     monkeypatch.setattr(pipeline_runner.time, "sleep", lambda _: None)
 
     monkeypatch.setattr(pipeline_runner.settings, "llm_analysis_max_workers", 1)
-    monkeypatch.setattr(pipeline_runner.settings, "llm_validation_max_workers", 1)
     monkeypatch.setattr(pipeline_runner.settings, "llm_rate_limit_max_retries", 2)
     monkeypatch.setattr(
         pipeline_runner.settings, "llm_rate_limit_base_sleep_seconds", 0.1
     )
     monkeypatch.setattr(
         pipeline_runner.settings, "llm_rate_limit_max_sleep_seconds", 0.1
-    )
-    monkeypatch.setattr(
-        pipeline_runner.settings,
-        "gemini_validation_model_name",
-        "gemini-3-flash-preview",
-    )
-    monkeypatch.setattr(
-        pipeline_runner.settings,
-        "gemini_validation_search_context_size",
-        "high",
-    )
-    monkeypatch.setattr(
-        pipeline_runner.settings,
-        "gemini_validation_thinking_level",
-        "high",
     )
 
     input_dir = tmp_path / "input"
@@ -185,6 +169,6 @@ def test_process_pdfs_persists_validation_failures_and_continues(monkeypatch, tm
     assert set(failures_df.columns) == expected_failure_columns
     assert len(failures_df) == 1
     assert failures_df.loc[0, "proposal"] == "proposal-fail"
-    assert int(failures_df.loc[0, "retries_attempted"]) == 2
+    assert int(failures_df.loc[0, "retries_attempted"]) == 0
     assert int(failures_df.loc[0, "status_code"]) == 429
-    assert _FakeValidator.attempts["proposal-fail"] == 3
+    assert _FakeValidator.attempts["proposal-fail"] == 1

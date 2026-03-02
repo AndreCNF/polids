@@ -275,14 +275,13 @@ def process_pdfs(input_folder: str) -> None:
     output_folder.mkdir(parents=True, exist_ok=True)
 
     analysis_max_workers = settings.llm_analysis_max_workers
-    validation_max_workers = settings.llm_validation_max_workers
     rate_limit_max_retries = settings.llm_rate_limit_max_retries
     rate_limit_base_sleep_seconds = settings.llm_rate_limit_base_sleep_seconds
     rate_limit_max_sleep_seconds = settings.llm_rate_limit_max_sleep_seconds
 
     logger.info(
         "LLM concurrency settings: "
-        f"analysis_workers={analysis_max_workers}, validation_workers={validation_max_workers}, "
+        f"analysis_workers={analysis_max_workers}, "
         f"max_retries={rate_limit_max_retries}, sleep={rate_limit_base_sleep_seconds:.1f}-{rate_limit_max_sleep_seconds:.1f}s"
     )
 
@@ -570,11 +569,7 @@ def process_pdfs(input_folder: str) -> None:
     text_chunker = OpenAITextChunker()
     party_extractor = OpenAIPartyNameExtractor()
     analyzer = OpenAIStructuredChunkAnalyzer()
-    validator = GeminiScientificValidator(
-        model_name=settings.gemini_validation_model_name,
-        search_context_size=settings.gemini_validation_search_context_size,
-        thinking_level=settings.gemini_validation_thinking_level,
-    )
+    validator = GeminiScientificValidator()
     marker_processor = MarkerPDFProcessor()
     markdown_chunker = MarkdownTextChunker()
 
@@ -829,50 +824,46 @@ def process_pdfs(input_folder: str) -> None:
             )
             validation_rows: list[dict[str, object]] = []
             validation_failure_rows: list[dict[str, object]] = []
-            proposal_tasks: list[tuple[tuple[int, int], tuple[int, int, str]]] = []
+            proposal_tasks: list[tuple[int, int, str]] = []
             for chunk_index, model in chunk_analysis_entries:
                 for proposal_index, proposal in enumerate(model.policy_proposals):
                     validation_key = (filename, chunk_index, proposal_index)
                     if validation_key in validation_seen_keys:
                         continue
-                    proposal_tasks.append(
-                        (
-                            (chunk_index, proposal_index),
-                            (chunk_index, proposal_index, proposal),
-                        )
-                    )
+                    proposal_tasks.append((chunk_index, proposal_index, proposal))
 
-            validation_result = RateLimitedTaskRunResult(
-                results={},
-                exhausted_failures=[],
-                rounds=0,
-                min_workers=max(1, validation_max_workers),
-            )
             if proposal_tasks:
-
-                def validate_proposal(
-                    payload: tuple[int, int, str],
-                ) -> tuple[Any, list[Any]]:
-                    _chunk_index, _proposal_index, proposal = payload
-                    return validator.process(proposal)
-
-                validation_result = run_rate_limited_tasks(
-                    tasks=proposal_tasks,
-                    worker_fn=validate_proposal,
-                    task_label=f"Scientific validation ({filename})",
-                    max_workers=validation_max_workers,
-                    max_retries=rate_limit_max_retries,
-                    base_sleep_seconds=rate_limit_base_sleep_seconds,
-                    max_sleep_seconds=rate_limit_max_sleep_seconds,
-                    collect_exhausted_failures=True,
-                )
-
-                for (chunk_index, proposal_index), (validation, citations) in sorted(
-                    validation_result.results.items()
+                for chunk_index, proposal_index, proposal in tqdm(
+                    proposal_tasks,
+                    desc=f"Scientific validation ({filename})",
+                    unit="proposal",
+                    leave=False,
                 ):
-                    proposal = chunk_analysis_by_index[chunk_index].policy_proposals[
-                        proposal_index
-                    ]
+                    try:
+                        validation, citations = validator.process(proposal)
+                    except Exception as exc:
+                        status_code, _error_status, error_message = (
+                            _extract_error_details(exc)
+                        )
+                        validation_failure_rows.append(
+                            {
+                                "pdf_file": filename,
+                                "chunk_index": chunk_index,
+                                "proposal_index": proposal_index,
+                                "proposal": proposal,
+                                "error_type": type(exc).__name__,
+                                "status_code": status_code,
+                                "error_message": error_message,
+                                "retries_attempted": 0,
+                                "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                            }
+                        )
+                        logger.warning(
+                            f"Scientific validation failed for {filename}, chunk={chunk_index}, proposal={proposal_index}: "
+                            f"{type(exc).__name__} (status_code={status_code}). {error_message}"
+                        )
+                        continue
+
                     val_data = validation.model_dump()
                     validation_rows.append(
                         {
@@ -882,27 +873,6 @@ def process_pdfs(input_folder: str) -> None:
                             "proposal": proposal,
                             **val_data,
                             "citations": citations,
-                        }
-                    )
-                for failure in validation_result.exhausted_failures:
-                    chunk_index, proposal_index = failure.task_id
-                    payload = failure.payload
-                    proposal = (
-                        payload[2]
-                        if isinstance(payload, tuple) and len(payload) == 3
-                        else ""
-                    )
-                    validation_failure_rows.append(
-                        {
-                            "pdf_file": filename,
-                            "chunk_index": chunk_index,
-                            "proposal_index": proposal_index,
-                            "proposal": proposal,
-                            "error_type": failure.error_type,
-                            "status_code": failure.status_code,
-                            "error_message": failure.error_message,
-                            "retries_attempted": failure.retries_attempted,
-                            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
                         }
                     )
             if validation_rows:
@@ -935,19 +905,15 @@ def process_pdfs(input_folder: str) -> None:
                 )
                 if added:
                     logger.info(
-                        f"Saved {added} exhausted validation failure row(s) to {csv_validation_failures}"
+                        f"Saved {added} validation failure row(s) to {csv_validation_failures}"
                     )
-            worker_reductions = max(
-                0, validation_max_workers - validation_result.min_workers
-            )
             logger.info(
                 f"Scientific validation summary ({filename}): "
                 f"total_proposals={total_proposals}, "
                 f"already_validated={total_proposals - len(proposal_tasks)}, "
                 f"attempted={len(proposal_tasks)}, "
                 f"new_successes={len(validation_rows)}, "
-                f"exhausted_failures={len(validation_result.exhausted_failures)}, "
-                f"worker_reductions={worker_reductions}"
+                f"failures={len(validation_failure_rows)}"
             )
 
         except Exception as e:
