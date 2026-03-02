@@ -7,16 +7,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 
-import pandas as pd  # type: ignore[import]
+import pandas as pd
 from loguru import logger
-from tqdm.auto import tqdm  # type: ignore[import]
+from tqdm.auto import tqdm
 
 from polids.config import settings
 from polids.party_name_extraction.openai import OpenAIPartyNameExtractor
 from polids.pdf_processing.marker import MarkerPDFProcessor
 from polids.pdf_processing.mistral import MistralPDFProcessor
 from polids.pdf_processing.openai import OpenAIPDFProcessor
-from polids.scientific_validation.gemini import GeminiScientificValidator
+from polids.scientific_validation.openai import OpenAIScientificValidator
 from polids.structured_analysis.base import (
     HateSpeechDetection,
     ManifestoChunkAnalysis,
@@ -569,7 +569,7 @@ def process_pdfs(input_folder: str) -> None:
     text_chunker = OpenAITextChunker()
     party_extractor = OpenAIPartyNameExtractor()
     analyzer = OpenAIStructuredChunkAnalyzer()
-    validator = GeminiScientificValidator()
+    validator = OpenAIScientificValidator()
     marker_processor = MarkerPDFProcessor()
     markdown_chunker = MarkdownTextChunker()
 

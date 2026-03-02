@@ -1,6 +1,4 @@
-"""
-Gemini-based scientific policy validation using PydanticAI with web search tools.
-"""
+"""Gemini-based scientific policy validation using PydanticAI with web search tools."""
 
 import os
 import re
