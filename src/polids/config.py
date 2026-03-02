@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import AnyUrl, BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -91,7 +91,7 @@ class Settings(BaseSettings):
         description="Maximum concurrent workers for proposal scientific validation.",
     )
     llm_rate_limit_max_retries: int = Field(
-        default=6,
+        default=4,
         ge=0,
         validation_alias="POLIDS_RATE_LIMIT_MAX_RETRIES",
         description="Maximum retries for rate-limited tasks.",
@@ -107,6 +107,21 @@ class Settings(BaseSettings):
         gt=0,
         validation_alias="POLIDS_RATE_LIMIT_MAX_SLEEP_SECONDS",
         description="Maximum sleep duration in seconds for rate-limit backoff.",
+    )
+    gemini_validation_model_name: str = Field(
+        default="gemini-3-flash-preview",
+        validation_alias="POLIDS_GEMINI_VALIDATION_MODEL",
+        description="Gemini model name used for scientific validation.",
+    )
+    gemini_validation_search_context_size: Literal["low", "medium", "high"] = Field(
+        default="high",
+        validation_alias="POLIDS_GEMINI_VALIDATION_SEARCH_CONTEXT_SIZE",
+        description="Gemini web search context size used for scientific validation.",
+    )
+    gemini_validation_thinking_level: Literal["low", "high"] = Field(
+        default="high",
+        validation_alias="POLIDS_GEMINI_VALIDATION_THINKING_LEVEL",
+        description="Gemini thinking level used for scientific validation.",
     )
     langfuse: LangfuseConfig = LangfuseConfig()
 

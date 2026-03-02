@@ -1,3 +1,4 @@
+import pytest
 from pydantic_ai.messages import (
     BuiltinToolCallPart,
     BuiltinToolReturnPart,
@@ -24,6 +25,15 @@ class _FakeAgent:
 
     def run_sync(self, _: str) -> _FakeRunResult:
         return self._result
+
+
+class _FailingAgent:
+    def __init__(self):
+        self.calls = 0
+
+    def run_sync(self, _: str) -> _FakeRunResult:
+        self.calls += 1
+        raise RuntimeError("boom")
 
 
 def test_extract_citations_from_result_with_web_search_urls():
@@ -83,3 +93,14 @@ def test_process_returns_extracted_citations():
     parsed, citations = validator.process("policy")
     assert parsed == expected
     assert citations == ["https://example.org/nested"]
+
+
+def test_process_does_not_apply_internal_retries():
+    validator = GeminiScientificValidator.__new__(GeminiScientificValidator)
+    failing_agent = _FailingAgent()
+    validator._agent = failing_agent
+
+    with pytest.raises(RuntimeError, match="boom"):
+        validator.process("policy")
+
+    assert failing_agent.calls == 1

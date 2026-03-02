@@ -12,7 +12,6 @@ from polids.scientific_validation.base import (
     ScientificValidation,
     ScientificValidator,
 )
-from polids.utils.backoff import llm_backoff
 
 if settings.langfuse.log_to_langfuse:
     from langfuse import get_client
@@ -189,7 +188,6 @@ class GeminiScientificValidator(ScientificValidator):
 
         return citations
 
-    @llm_backoff
     def process(
         self,
         policy_proposal: str,

@@ -2,6 +2,8 @@ import ast
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 
@@ -64,6 +66,177 @@ ANALYSIS_TABLE_COLUMNS = [
     "political_compass_economic",
     "political_compass_social",
 ]
+VALIDATION_FAILURE_TABLE_COLUMNS = [
+    "pdf_file",
+    "chunk_index",
+    "proposal_index",
+    "proposal",
+    "error_type",
+    "status_code",
+    "error_message",
+    "retries_attempted",
+    "timestamp_utc",
+]
+
+
+@dataclass
+class TaskFailure:
+    """Stores metadata about a task that exhausted rate-limit retries."""
+
+    task_id: Any
+    payload: Any
+    retries_attempted: int
+    error_type: str
+    status_code: int | None
+    error_status: str | None
+    error_message: str
+
+
+@dataclass
+class RateLimitedTaskRunResult:
+    """Result object for batched task execution with rate-limit retries."""
+
+    results: dict[Any, Any]
+    exhausted_failures: list[TaskFailure]
+    rounds: int
+    min_workers: int
+
+
+def _extract_error_details(exc: Exception) -> tuple[int | None, str | None, str]:
+    """Extract normalized status and message details from an exception."""
+    status_code = getattr(exc, "status_code", None)
+    response = getattr(exc, "response", None)
+    if status_code is None:
+        response_status = getattr(response, "status_code", None)
+        if isinstance(response_status, int):
+            status_code = response_status
+
+    error_status: str | None = None
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        error = body.get("error")
+        if isinstance(error, dict):
+            candidate = error.get("status")
+            if isinstance(candidate, str):
+                error_status = candidate
+
+    message_parts = [str(exc)]
+    if body is not None:
+        message_parts.append(str(body))
+    if response is not None:
+        response_text = getattr(response, "text", None)
+        if isinstance(response_text, str):
+            message_parts.append(response_text)
+        response_content = getattr(response, "content", None)
+        if isinstance(response_content, bytes):
+            message_parts.append(response_content.decode("utf-8", errors="ignore"))
+        elif isinstance(response_content, str):
+            message_parts.append(response_content)
+
+    message = " ".join(message_parts).strip()
+    if len(message) > 500:
+        message = f"{message[:497]}..."
+    return status_code, error_status, message
+
+
+def is_rate_limit_error(exc: Exception) -> bool:
+    """Detect whether an exception was likely caused by rate limiting."""
+    status_code, _error_status, message = _extract_error_details(exc)
+    if status_code == 429:
+        return True
+    if status_code == 503 and "slow down" in message.lower():
+        return True
+    return any(marker in message.lower() for marker in RATE_LIMIT_MARKERS)
+
+
+def run_rate_limited_tasks(
+    tasks: list[tuple[Any, Any]],
+    worker_fn: Callable[[Any], TResult],
+    task_label: str,
+    max_workers: int,
+    max_retries: int,
+    base_sleep_seconds: float,
+    max_sleep_seconds: float,
+    collect_exhausted_failures: bool = False,
+) -> RateLimitedTaskRunResult:
+    """Run tasks with bounded concurrency and adaptive rate-limit retries."""
+    if not tasks:
+        return RateLimitedTaskRunResult(
+            results={}, exhausted_failures=[], rounds=0, min_workers=max(1, max_workers)
+        )
+    workers = max(1, max_workers)
+    min_workers = workers
+    results: dict[Any, TResult] = {}
+    exhausted_failures: list[TaskFailure] = []
+    pending: list[tuple[Any, Any, int]] = [
+        (task_id, payload, 0) for task_id, payload in tasks
+    ]
+    round_id = 0
+
+    while pending:
+        round_id += 1
+        current_batch = pending
+        pending = []
+        logger.info(
+            f"{task_label}: processing {len(current_batch)} task(s) with {workers} worker(s), round {round_id}"
+        )
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            future_map = {
+                executor.submit(worker_fn, payload): (task_id, payload, retry_count)
+                for task_id, payload, retry_count in current_batch
+            }
+            for future in as_completed(future_map):
+                task_id, payload, retry_count = future_map[future]
+                try:
+                    results[task_id] = future.result()
+                except Exception as exc:
+                    if is_rate_limit_error(exc) and retry_count < max_retries:
+                        pending.append((task_id, payload, retry_count + 1))
+                        continue
+                    if collect_exhausted_failures and is_rate_limit_error(exc):
+                        status_code, error_status, error_message = (
+                            _extract_error_details(exc)
+                        )
+                        exhausted_failures.append(
+                            TaskFailure(
+                                task_id=task_id,
+                                payload=payload,
+                                retries_attempted=retry_count,
+                                error_type=type(exc).__name__,
+                                status_code=status_code,
+                                error_status=error_status,
+                                error_message=error_message,
+                            )
+                        )
+                        logger.warning(
+                            f"{task_label}: exhausted retries for task_id={task_id}; "
+                            f"status_code={status_code}, error_status={error_status}, "
+                            f"error_type={type(exc).__name__}, message={error_message}"
+                        )
+                        continue
+                    raise
+
+        if pending:
+            highest_retry = max(retry_count for _, _, retry_count in pending)
+            sleep_seconds = min(
+                max_sleep_seconds,
+                max(base_sleep_seconds, base_sleep_seconds * (2**highest_retry)),
+            )
+            logger.warning(
+                f"{task_label}: hit rate limits for {len(pending)} task(s); backing off for {sleep_seconds:.1f}s and reducing workers."
+            )
+            workers = max(1, workers // 2)
+            min_workers = min(min_workers, workers)
+            time.sleep(sleep_seconds)
+        elif workers < max_workers:
+            workers += 1
+
+    return RateLimitedTaskRunResult(
+        results=results,
+        exhausted_failures=exhausted_failures,
+        rounds=round_id,
+        min_workers=min_workers,
+    )
 
 
 def process_pdfs(input_folder: str) -> None:
@@ -100,116 +273,6 @@ def process_pdfs(input_folder: str) -> None:
 
     output_folder = input_path / "output"
     output_folder.mkdir(parents=True, exist_ok=True)
-
-    def is_rate_limit_error(exc: Exception) -> bool:
-        """Detect whether an exception was likely caused by rate limiting.
-
-        Args:
-            exc (Exception): Exception raised by an API call.
-
-        Returns:
-            bool: True when the exception likely represents a rate-limit error.
-        """
-        # Native SDK/PydanticAI exceptions often expose HTTP status directly.
-        status_code = getattr(exc, "status_code", None)
-        if status_code == 429:
-            return True
-        if status_code == 503 and "slow down" in str(exc).lower():
-            return True
-
-        # Some SDKs store status on response objects.
-        response = getattr(exc, "response", None)
-        response_status = getattr(response, "status_code", None)
-        if response_status == 429:
-            return True
-
-        message_parts = [str(exc)]
-        body = getattr(exc, "body", None)
-        if body is not None:
-            message_parts.append(str(body))
-        if response is not None:
-            response_text = getattr(response, "text", None)
-            if isinstance(response_text, str):
-                message_parts.append(response_text)
-            response_content = getattr(response, "content", None)
-            if isinstance(response_content, (str, bytes)):
-                message_parts.append(
-                    response_content.decode("utf-8", errors="ignore")
-                    if isinstance(response_content, bytes)
-                    else response_content
-                )
-
-        message = " ".join(message_parts).lower()
-        return any(marker in message for marker in RATE_LIMIT_MARKERS)
-
-    def run_rate_limited_tasks(
-        tasks: list[tuple[Any, Any]],
-        worker_fn: Callable[[Any], TResult],
-        task_label: str,
-        max_workers: int,
-        max_retries: int,
-        base_sleep_seconds: float,
-        max_sleep_seconds: float,
-    ) -> dict[Any, TResult]:
-        """Run tasks with bounded concurrency and adaptive rate-limit retries.
-
-        Args:
-            tasks (list[tuple[Any, Any]]): Items as (task_id, payload).
-            worker_fn (Callable[[Any], TResult]): Function applied to each payload.
-            task_label (str): Label used in logs.
-            max_workers (int): Maximum worker count.
-            max_retries (int): Maximum retries per task when rate-limited.
-            base_sleep_seconds (float): Initial backoff delay.
-            max_sleep_seconds (float): Maximum backoff delay.
-
-        Returns:
-            dict[Any, TResult]: Mapping from task_id to worker result.
-        """
-        if not tasks:
-            return {}
-        workers = max(1, max_workers)
-        results: dict[Any, TResult] = {}
-        pending: list[tuple[Any, Any, int]] = [
-            (task_id, payload, 0) for task_id, payload in tasks
-        ]
-        round_id = 0
-
-        while pending:
-            round_id += 1
-            current_batch = pending
-            pending = []
-            logger.info(
-                f"{task_label}: processing {len(current_batch)} task(s) with {workers} worker(s), round {round_id}"
-            )
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                future_map = {
-                    executor.submit(worker_fn, payload): (task_id, payload, retry_count)
-                    for task_id, payload, retry_count in current_batch
-                }
-                for future in as_completed(future_map):
-                    task_id, payload, retry_count = future_map[future]
-                    try:
-                        results[task_id] = future.result()
-                    except Exception as exc:
-                        if is_rate_limit_error(exc) and retry_count < max_retries:
-                            pending.append((task_id, payload, retry_count + 1))
-                        else:
-                            raise
-
-            if pending:
-                highest_retry = max(retry_count for _, _, retry_count in pending)
-                sleep_seconds = min(
-                    max_sleep_seconds,
-                    max(base_sleep_seconds, base_sleep_seconds * (2**highest_retry)),
-                )
-                logger.warning(
-                    f"{task_label}: hit rate limits for {len(pending)} task(s); backing off for {sleep_seconds:.1f}s and reducing workers."
-                )
-                workers = max(1, workers // 2)
-                time.sleep(sleep_seconds)
-            elif workers < max_workers:
-                workers += 1
-        return results
 
     analysis_max_workers = settings.llm_analysis_max_workers
     validation_max_workers = settings.llm_validation_max_workers
@@ -453,6 +516,7 @@ def process_pdfs(input_folder: str) -> None:
     csv_party = output_folder / "party_names.csv"
     csv_analysis = output_folder / "chunk_analysis.csv"
     csv_validation = output_folder / "scientific_validations.csv"
+    csv_validation_failures = output_folder / "scientific_validation_failures.csv"
     csv_mapping = output_folder / "topic_mapping.csv"
     csv_unified = output_folder / "unified_topics.csv"
     csv_parsed_pages = output_folder / "parsed_pages.csv"
@@ -472,6 +536,10 @@ def process_pdfs(input_folder: str) -> None:
     validation_existing = load_existing_csv(
         csv_validation, ["pdf_file", "chunk_index", "proposal_index"]
     )
+    validation_failures_existing = load_existing_csv(
+        csv_validation_failures,
+        VALIDATION_FAILURE_TABLE_COLUMNS,
+    )
     mapping_existing = load_existing_csv(
         csv_mapping, ["original_topic", "unified_topic"]
     )
@@ -483,6 +551,9 @@ def process_pdfs(input_folder: str) -> None:
     validation_seen_keys = build_key_set(
         validation_existing, ["pdf_file", "chunk_index", "proposal_index"]
     )
+    validation_failure_seen_keys = build_key_set(
+        validation_failures_existing, ["pdf_file", "chunk_index", "proposal_index"]
+    )
     mapping_seen_keys = build_key_set(mapping_existing, ["original_topic"])
     unified_seen_keys = build_key_set(unified_existing, ["unified_topic"])
 
@@ -492,13 +563,18 @@ def process_pdfs(input_folder: str) -> None:
 
     analysis_columns = analysis_existing.columns.tolist()
     validation_columns = validation_existing.columns.tolist()
+    validation_failure_columns = validation_failures_existing.columns.tolist()
 
     pdf_processor = MistralPDFProcessor()
     openai_pdf_processor = OpenAIPDFProcessor()
     text_chunker = OpenAITextChunker()
     party_extractor = OpenAIPartyNameExtractor()
     analyzer = OpenAIStructuredChunkAnalyzer()
-    validator = GeminiScientificValidator()
+    validator = GeminiScientificValidator(
+        model_name=settings.gemini_validation_model_name,
+        search_context_size=settings.gemini_validation_search_context_size,
+        thinking_level=settings.gemini_validation_thinking_level,
+    )
     marker_processor = MarkerPDFProcessor()
     markdown_chunker = MarkdownTextChunker()
 
@@ -707,9 +783,11 @@ def process_pdfs(input_folder: str) -> None:
                     base_sleep_seconds=rate_limit_base_sleep_seconds,
                     max_sleep_seconds=rate_limit_max_sleep_seconds,
                 )
-                chunk_indices = sorted(analysis_results.keys())
-                chunk_analysis_models = [analysis_results[idx] for idx in chunk_indices]
-                for idx, analysis in analysis_results.items():
+                chunk_indices = sorted(analysis_results.results.keys())
+                chunk_analysis_models = [
+                    analysis_results.results[idx] for idx in chunk_indices
+                ]
+                for idx, analysis in analysis_results.results.items():
                     chunk_analysis_by_index[idx] = analysis
                 logger.info(
                     f"Completed structured analysis of {len(missing_chunk_indices)} missing chunk(s) for {filename}"
@@ -746,7 +824,11 @@ def process_pdfs(input_folder: str) -> None:
             logger.info(
                 f"Step: Scientific validation of policy proposals for {filename}"
             )
+            total_proposals = sum(
+                len(model.policy_proposals) for _, model in chunk_analysis_entries
+            )
             validation_rows: list[dict[str, object]] = []
+            validation_failure_rows: list[dict[str, object]] = []
             proposal_tasks: list[tuple[tuple[int, int], tuple[int, int, str]]] = []
             for chunk_index, model in chunk_analysis_entries:
                 for proposal_index, proposal in enumerate(model.policy_proposals):
@@ -760,6 +842,12 @@ def process_pdfs(input_folder: str) -> None:
                         )
                     )
 
+            validation_result = RateLimitedTaskRunResult(
+                results={},
+                exhausted_failures=[],
+                rounds=0,
+                min_workers=max(1, validation_max_workers),
+            )
             if proposal_tasks:
 
                 def validate_proposal(
@@ -768,7 +856,7 @@ def process_pdfs(input_folder: str) -> None:
                     _chunk_index, _proposal_index, proposal = payload
                     return validator.process(proposal)
 
-                validation_results = run_rate_limited_tasks(
+                validation_result = run_rate_limited_tasks(
                     tasks=proposal_tasks,
                     worker_fn=validate_proposal,
                     task_label=f"Scientific validation ({filename})",
@@ -776,10 +864,11 @@ def process_pdfs(input_folder: str) -> None:
                     max_retries=rate_limit_max_retries,
                     base_sleep_seconds=rate_limit_base_sleep_seconds,
                     max_sleep_seconds=rate_limit_max_sleep_seconds,
+                    collect_exhausted_failures=True,
                 )
 
                 for (chunk_index, proposal_index), (validation, citations) in sorted(
-                    validation_results.items()
+                    validation_result.results.items()
                 ):
                     proposal = chunk_analysis_by_index[chunk_index].policy_proposals[
                         proposal_index
@@ -793,6 +882,27 @@ def process_pdfs(input_folder: str) -> None:
                             "proposal": proposal,
                             **val_data,
                             "citations": citations,
+                        }
+                    )
+                for failure in validation_result.exhausted_failures:
+                    chunk_index, proposal_index = failure.task_id
+                    payload = failure.payload
+                    proposal = (
+                        payload[2]
+                        if isinstance(payload, tuple) and len(payload) == 3
+                        else ""
+                    )
+                    validation_failure_rows.append(
+                        {
+                            "pdf_file": filename,
+                            "chunk_index": chunk_index,
+                            "proposal_index": proposal_index,
+                            "proposal": proposal,
+                            "error_type": failure.error_type,
+                            "status_code": failure.status_code,
+                            "error_message": failure.error_message,
+                            "retries_attempted": failure.retries_attempted,
+                            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
                         }
                     )
             if validation_rows:
@@ -809,8 +919,36 @@ def process_pdfs(input_folder: str) -> None:
                 )
                 if added:
                     logger.info(f"Saved {added} validation row(s) to {csv_validation}")
-            else:
+            if not validation_rows and not proposal_tasks:
                 logger.info(f"No new validations needed for {filename}")
+            if validation_failure_rows:
+                failures_df = align_df_columns(
+                    pd.DataFrame(validation_failure_rows),
+                    known_columns=validation_failure_columns,
+                )
+                added = append_unique_df(
+                    failures_df,
+                    csv_validation_failures,
+                    key_columns=["pdf_file", "chunk_index", "proposal_index"],
+                    seen_keys=validation_failure_seen_keys,
+                    known_columns=validation_failure_columns,
+                )
+                if added:
+                    logger.info(
+                        f"Saved {added} exhausted validation failure row(s) to {csv_validation_failures}"
+                    )
+            worker_reductions = max(
+                0, validation_max_workers - validation_result.min_workers
+            )
+            logger.info(
+                f"Scientific validation summary ({filename}): "
+                f"total_proposals={total_proposals}, "
+                f"already_validated={total_proposals - len(proposal_tasks)}, "
+                f"attempted={len(proposal_tasks)}, "
+                f"new_successes={len(validation_rows)}, "
+                f"exhausted_failures={len(validation_result.exhausted_failures)}, "
+                f"worker_reductions={worker_reductions}"
+            )
 
         except Exception as e:
             logger.error(f"Error processing {filename}: {e}\n{traceback.format_exc()}")
