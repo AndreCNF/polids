@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import re
 import time
 from pathlib import Path
@@ -24,6 +25,7 @@ class MistralPDFProcessor(PDFProcessor):
         Args:
             model (str): Mistral OCR model name. Defaults to "mistral-ocr-latest".
         """
+        logging.getLogger("mistralai.extra.observability.otel").setLevel(logging.ERROR)
         self.client = Mistral(api_key=settings.mistral_api_key)
         self.model = model
 
@@ -91,23 +93,8 @@ class MistralPDFProcessor(PDFProcessor):
             return []
 
         uploaded_pdf_file_ids = self._upload_pdf_files_for_batch(pdf_paths)
-        batch_requests = []
-        for index, file_id in enumerate(uploaded_pdf_file_ids):
-            batch_requests.append(
-                {
-                    "custom_id": str(index),
-                    "body": {
-                        "document": {
-                            "type": "file",
-                            "file_id": file_id,
-                        },
-                        "include_image_base64": False,
-                        "table_format": "markdown",
-                    },
-                }
-            )
-
-        batch_job = self._create_batch_job(batch_requests)
+        batch_input_file_id = self._create_batch_input_file(uploaded_pdf_file_ids)
+        batch_job = self._create_batch_job(batch_input_file_id)
         completed_job = self._wait_for_batch_job_completion(
             job_id=batch_job.id,
             poll_interval_seconds=poll_interval_seconds,
@@ -132,11 +119,37 @@ class MistralPDFProcessor(PDFProcessor):
             file_ids.append(uploaded.id)
         return file_ids
 
-    def _create_batch_job(self, batch_requests: list[dict[str, Any]]) -> Any:
+    def _create_batch_input_file(self, uploaded_pdf_file_ids: Sequence[str]) -> str:
+        jsonl_lines: list[str] = []
+        for index, file_id in enumerate(uploaded_pdf_file_ids):
+            request_row = {
+                "custom_id": str(index),
+                "body": {
+                    "document": {
+                        "type": "file",
+                        "file_id": file_id,
+                    },
+                    "include_image_base64": False,
+                    "table_format": "markdown",
+                },
+            }
+            jsonl_lines.append(json.dumps(request_row))
+
+        uploaded_input_file = self.client.files.upload(
+            file={
+                "file_name": "mistral_ocr_batch_requests.jsonl",
+                "content": ("\n".join(jsonl_lines)).encode("utf-8"),
+                "content_type": "application/jsonl",
+            },
+            purpose="batch",
+        )
+        return uploaded_input_file.id
+
+    def _create_batch_job(self, batch_input_file_id: str) -> Any:
         return self.client.batch.jobs.create(
             endpoint="/v1/ocr",
             model=self.model,
-            requests=batch_requests,
+            input_files=[batch_input_file_id],
         )
 
     def _wait_for_batch_job_completion(
@@ -146,7 +159,7 @@ class MistralPDFProcessor(PDFProcessor):
         last_status = "UNKNOWN"
 
         while time.monotonic() <= deadline:
-            batch_job = self.client.batch.jobs.get(job_id=job_id, inline=True)
+            batch_job = self.client.batch.jobs.get(job_id=job_id)
             status = str(getattr(batch_job, "status", "UNKNOWN"))
             last_status = status
 
@@ -166,18 +179,20 @@ class MistralPDFProcessor(PDFProcessor):
         )
 
     def _extract_batch_outputs(self, batch_job: Any) -> list[dict[str, Any]]:
+        output_file = getattr(batch_job, "output_file", None)
+        if isinstance(output_file, str) and output_file:
+            response = self.client.files.download(file_id=output_file)
+            return [
+                json.loads(line) for line in response.text.splitlines() if line.strip()
+            ]
+
         outputs = getattr(batch_job, "outputs", None)
         if isinstance(outputs, list) and outputs:
             return [self._to_dict(output) for output in outputs]
 
-        output_file = getattr(batch_job, "output_file", None)
-        if not isinstance(output_file, str) or not output_file:
-            raise RuntimeError(
-                f"Batch OCR job {getattr(batch_job, 'id', '<unknown>')} has no inline outputs and no output_file."
-            )
-
-        response = self.client.files.download(file_id=output_file)
-        return [json.loads(line) for line in response.text.splitlines() if line.strip()]
+        raise RuntimeError(
+            f"Batch OCR job {getattr(batch_job, 'id', '<unknown>')} has no inline outputs and no output_file."
+        )
 
     def _parse_batch_outputs(
         self, outputs: Sequence[dict[str, Any]], pdf_paths: Sequence[Path]
@@ -185,14 +200,14 @@ class MistralPDFProcessor(PDFProcessor):
         results_by_index: dict[int, List[str]] = {}
 
         for output in outputs:
-            custom_id = output.get("custom_id")
-            if not isinstance(custom_id, str) or not custom_id.isdigit():
+            custom_id = self._extract_custom_id(output)
+            if custom_id is None:
                 logger.warning(
-                    f"Skipping batch output with invalid custom_id: {custom_id}"
+                    f"Skipping batch output with invalid custom_id: {output.get('custom_id')}"
                 )
                 continue
 
-            index = int(custom_id)
+            index = custom_id
             if not 0 <= index < len(pdf_paths):
                 logger.warning(
                     f"Skipping batch output with out-of-range custom_id: {custom_id}"
@@ -204,6 +219,14 @@ class MistralPDFProcessor(PDFProcessor):
                 raise RuntimeError(
                     f"Mistral batch OCR returned an error for request {custom_id}: {error}"
                 )
+
+            response = output.get("response")
+            if isinstance(response, dict):
+                status_code = response.get("status_code")
+                if isinstance(status_code, int) and status_code >= 400:
+                    raise RuntimeError(
+                        f"Mistral batch OCR request {custom_id} failed with status {status_code}: {response.get('body')}"
+                    )
 
             body = self._extract_output_body(output)
             if not isinstance(body, dict):
@@ -223,16 +246,41 @@ class MistralPDFProcessor(PDFProcessor):
 
         return results_by_index
 
+    def _extract_custom_id(self, output: dict[str, Any]) -> int | None:
+        custom_id = output.get("custom_id")
+        if custom_id is None and isinstance(output.get("request"), dict):
+            custom_id = output["request"].get("custom_id")
+
+        if isinstance(custom_id, int):
+            return custom_id
+        if isinstance(custom_id, str) and custom_id.isdigit():
+            return int(custom_id)
+        return None
+
     def _extract_output_body(self, output: dict[str, Any]) -> dict[str, Any] | None:
         response = output.get("response")
         if isinstance(response, dict):
             body = response.get("body")
             if isinstance(body, dict):
                 return body
+            if isinstance(body, str):
+                try:
+                    parsed = json.loads(body)
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError:
+                    return None
 
         body = output.get("body")
         if isinstance(body, dict):
             return body
+        if isinstance(body, str):
+            try:
+                parsed = json.loads(body)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                return None
 
         return None
 
