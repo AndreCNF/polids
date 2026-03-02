@@ -63,7 +63,8 @@ class GeminiScientificValidator(ScientificValidator):
         model_name: str = MODEL_NAME,
         system_prompt: str = SYSTEM_PROMPT,
         search_context_size: Literal["low", "medium", "high"] = "high",
-        thinking_level: Literal["low", "high"] = "high",
+        max_web_searches: int = 4,
+        thinking_level: Literal["low", "high"] = "low",
     ):
         """
         Initialize the GeminiScientificValidator with Google / Gemini parameters.
@@ -73,12 +74,14 @@ class GeminiScientificValidator(ScientificValidator):
             model_name (str): The Gemini model name.
             system_prompt (str): The system prompt for the model.
             search_context_size (Literal["low", "medium", "high"]): Web search context size.
+            max_web_searches (int): Maximum number of web searches allowed per query.
             thinking_level (Literal["low", "high"]): Gemini thinking level.
         """
         self.google_api_key = google_api_key
         self.model_name = model_name
         self.system_prompt = system_prompt
         self.search_context_size = search_context_size
+        self.max_web_searches = max_web_searches
         self.thinking_level = thinking_level
         self._agent = self._build_agent()
 
@@ -112,7 +115,12 @@ class GeminiScientificValidator(ScientificValidator):
             model_settings=model_settings,
             output_type=PromptedOutput(ScientificValidation),
             system_prompt=self.system_prompt,
-            builtin_tools=[WebSearchTool(search_context_size=self.search_context_size)],
+            builtin_tools=[
+                WebSearchTool(
+                    search_context_size=self.search_context_size,
+                    max_uses=self.max_web_searches,
+                )
+            ],
         )
 
     @staticmethod
